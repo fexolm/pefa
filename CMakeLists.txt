@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 include(cmake/options.cmake)
 include(cmake/install-deps.cmake)
 
+if(ENABLE_ASAN)
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+endif()
+
 include_directories(vendor)
 include_directories(${DEPS_INCLUDE_DIR})
 

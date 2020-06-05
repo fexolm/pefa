@@ -50,7 +50,7 @@ ExternalProject_Add(arrow-build
                           -DARROW_JEMALLOC=OFF
                           -DCMAKE_INSTALL_PREFIX=${PEFA_DEPS_INSTALL_PREFIX}
                           -DCMAKE_CXX_FLAGS="-I${DEPS_INCLUDE_DIR} -L${DEPS_LIBRARY_DIR}"
-
+                          -DARROW_USE_ASAN=${ENABLE_ASAN}
         SOURCE_SUBDIR     "cpp"
 )
 
@@ -60,7 +60,7 @@ set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${DEPS_LIBRARY_DIR}/lib
 list(APPEND DEPS_LIBS pthread arrow)
 add_dependencies(arrow-build jemalloc-build)
 
-if(PEFA_BUILD_TESTS)
+if(ENABLE_TESTS)
 ExternalProject_Add(googletest-build
         GIT_TAG           release-1.10.0
         GIT_REPOSITORY    https://github.com/google/googletest.git
