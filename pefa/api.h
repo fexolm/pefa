@@ -1,5 +1,6 @@
 #pragma once
 #include "backends/backend_traits.h"
+#include "expressions.h"
 
 #include <arrow/table.h>
 #include <memory>

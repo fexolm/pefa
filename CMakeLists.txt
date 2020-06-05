@@ -11,6 +11,7 @@ include_directories(${DEPS_INCLUDE_DIR})
 
 add_library(pefa
         pefa/backends/naive/backend.cpp
+        pefa/expressions.cpp
 )
 add_dependencies(pefa ${DEPS_LIST})
 

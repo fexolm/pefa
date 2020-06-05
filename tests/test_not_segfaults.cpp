@@ -7,9 +7,9 @@
 #include <pefa/api.h>
 #include <pefa/backends/naive/backend.h>
 
-class ProjectionTest : public ::testing::Test {};
+class NotSegfaultTest : public ::testing::Test {};
 
-TEST_F(ProjectionTest, projectionTest) {
+TEST_F(NotSegfaultTest, projectionTest) {
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_parse_options = arrow::csv::ParseOptions::Defaults();
   auto arrow_read_options = arrow::csv::ReadOptions::Defaults();
@@ -27,4 +27,9 @@ TEST_F(ProjectionTest, projectionTest) {
   pefa::ExecutionContext<pefa::backends::naive::Backend> ctx(table);
 
   auto result = ctx.project({"a", "b"}).execute();
+}
+
+TEST_F(NotSegfaultTest, expressionsTest) {
+  using namespace pefa;
+  auto expr1 = ((col("a")->EQ(lit(5)))->OR((col("a")->LE(lit(6)))->AND(col("c")->NEQ(lit("abc")))));
 }
