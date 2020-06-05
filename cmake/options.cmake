@@ -1,0 +1,1 @@
+option(PEFA_BUILD_TESTS "Build unit tests" ON)
