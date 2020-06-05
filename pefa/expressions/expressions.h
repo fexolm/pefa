@@ -15,6 +15,13 @@ struct BooleanExpr : Expr {
   std::shared_ptr<BooleanExpr> OR(std::shared_ptr<BooleanExpr> rhs);
 };
 
+struct BooleanConst : BooleanExpr {
+  const bool value;
+  explicit BooleanConst(bool val);
+  static std::shared_ptr<BooleanConst> create(bool value);
+  void visit(ExprVisitor &visitor) override;
+};
+
 struct PredicateExpr : BooleanExpr {
   enum class Op {
     AND,
@@ -31,15 +38,8 @@ struct PredicateExpr : BooleanExpr {
   void visit(ExprVisitor &visitor) override;
 };
 
-struct CompareExpr;
-struct ComparebleExpr : Expr {
-  std::shared_ptr<CompareExpr> EQ(std::shared_ptr<ComparebleExpr> rhs);
-  std::shared_ptr<CompareExpr> LE(std::shared_ptr<ComparebleExpr> rhs);
-  std::shared_ptr<CompareExpr> GE(std::shared_ptr<ComparebleExpr> rhs);
-  std::shared_ptr<CompareExpr> NEQ(std::shared_ptr<ComparebleExpr> rhs);
-  std::shared_ptr<CompareExpr> LT(std::shared_ptr<ComparebleExpr> rhs);
-  std::shared_ptr<CompareExpr> GT(std::shared_ptr<ComparebleExpr> rhs);
-};
+struct LiteralExpr;
+struct ColumnRef;
 
 struct CompareExpr : BooleanExpr {
   enum class Op {
@@ -50,30 +50,37 @@ struct CompareExpr : BooleanExpr {
     EQ,
     NEQ,
   };
-  const std::shared_ptr<ComparebleExpr> lhs;
-  const std::shared_ptr<ComparebleExpr> rhs;
+  const std::shared_ptr<ColumnRef> lhs;
+  const std::shared_ptr<LiteralExpr> rhs;
   const Op op;
 
-  CompareExpr(std::shared_ptr<ComparebleExpr> lhs, std::shared_ptr<ComparebleExpr> rhs, Op op);
+  CompareExpr(std::shared_ptr<ColumnRef> lhs, std::shared_ptr<LiteralExpr> rhs, Op op);
 
-  static std::shared_ptr<CompareExpr> create(std::shared_ptr<ComparebleExpr> lhs,
-                                             std::shared_ptr<ComparebleExpr> rhs, Op op);
+  static std::shared_ptr<CompareExpr> create(std::shared_ptr<ColumnRef> lhs,
+                                             std::shared_ptr<LiteralExpr> rhs, Op op);
   void visit(ExprVisitor &visitor) override;
 };
 
-struct ColumnRef : ComparebleExpr {
+struct ColumnRef : Expr {
   const std::string name;
 
   explicit ColumnRef(std::string name);
   static std::shared_ptr<ColumnRef> create(std::string name);
   void visit(ExprVisitor &visitor) override;
+
+  std::shared_ptr<CompareExpr> EQ(std::shared_ptr<LiteralExpr> rhs);
+  std::shared_ptr<CompareExpr> LE(std::shared_ptr<LiteralExpr> rhs);
+  std::shared_ptr<CompareExpr> GE(std::shared_ptr<LiteralExpr> rhs);
+  std::shared_ptr<CompareExpr> NEQ(std::shared_ptr<LiteralExpr> rhs);
+  std::shared_ptr<CompareExpr> LT(std::shared_ptr<LiteralExpr> rhs);
+  std::shared_ptr<CompareExpr> GT(std::shared_ptr<LiteralExpr> rhs);
 };
 
-struct LiteralExpr : ComparebleExpr {
-  const std::variant<int64_t, double, std::string> value;
+struct LiteralExpr : Expr {
+  const std::variant<int64_t, double, std::string, bool> value;
 
-  explicit LiteralExpr(std::variant<int64_t, double, std::string> val);
-  static std::shared_ptr<LiteralExpr> create(std::variant<int64_t, double, std::string> val);
+  explicit LiteralExpr(std::variant<int64_t, double, std::string, bool> val);
+  static std::shared_ptr<LiteralExpr> create(std::variant<int64_t, double, std::string, bool> val);
   void visit(ExprVisitor &visitor) override;
 };
 
@@ -82,6 +89,7 @@ struct ExprVisitor {
   virtual void visit(const PredicateExpr &expr);
   virtual void visit(const CompareExpr &expr);
   virtual void visit(const LiteralExpr &expr);
+  virtual void visit(const BooleanConst &expr);
 };
 } // namespace pefa::internal
 
@@ -90,7 +98,8 @@ inline std::shared_ptr<internal::ColumnRef> col(std::string name) {
   return internal::ColumnRef::create(name);
 }
 
-inline std::shared_ptr<internal::LiteralExpr> lit(std::variant<int64_t, double, std::string> val) {
+inline std::shared_ptr<internal::LiteralExpr>
+lit(std::variant<int64_t, double, std::string, bool> val) {
   return internal::LiteralExpr::create(val);
 }
 } // namespace pefa
