@@ -6,6 +6,8 @@
 #include <memory>
 #include <pefa/api.h>
 #include <pefa/backends/naive/backend.h>
+#include <pefa/backends/naive/kernels/filter.h>
+#include <pefa/jit/jit.h>
 
 class NotSegfaultTest : public ::testing::Test {};
 
@@ -27,6 +29,20 @@ TEST_F(NotSegfaultTest, projectionTest) {
   pefa::ExecutionContext<pefa::backends::naive::Backend> ctx(table);
 
   auto result = ctx.project({"a", "b"}).execute();
+
+  pefa::backends::naive::kernels::gen_filters(
+      result->schema(), ((pefa::col("a")->EQ(pefa::lit(4)))->AND(pefa::col("a")->GE(pefa::lit(3))))
+                            ->OR(pefa::col("b")->EQ(pefa::lit(1))));
+
+  auto sym = pefa::jit::get_JIT()->findSymbol("a_filter");
+  auto p = (bool (*)(int64_t))pefa::jit::get_JIT()->findSymbol("a_predicate").getAddress().get();
+
+  auto f = (void (*)(int8_t *, int8_t *, int64_t))sym.getAddress().get();
+  int8_t a = 5;
+  int8_t b = 12;
+  f(&a, &b, 3);
+  p(1);
+  ASSERT_EQ(a, b);
 }
 
 TEST_F(NotSegfaultTest, expressionsTest) {
