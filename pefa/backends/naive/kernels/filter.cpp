@@ -120,7 +120,7 @@ public:
       }
     } else {
       auto bool_typ = llvm::Type::getInt8Ty(*m_context);
-      switch(m_last_op) {
+      switch (m_last_op) {
       case PredicateExpr::Op::OR:
         m_result = llvm::ConstantInt::get(bool_typ, 0, true);
         break;
@@ -128,7 +128,6 @@ public:
         m_result = llvm::ConstantInt::get(bool_typ, 1, true);
         break;
       }
-
     }
   }
 
@@ -187,6 +186,14 @@ void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module,
   builder.CreateRet(visitor.result());
 }
 
+// void filter(int64_t *a, int8_t *d, int len) {
+//  for (int i = 0; i < len / 8; i++) {
+//    auto src = a + i * 8;
+//    for (int j = 0; j < 8; j++) {
+//      dst[i] |= predicate(src[j]) << (7-j);
+//    }
+//  }
+//}
 void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
                      std::shared_ptr<arrow::Field> field) {
   std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(context, 1),
@@ -198,6 +205,12 @@ void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
   llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage,
                                                 field->name() + "_filter", module);
   llvm::BasicBlock *body = llvm::BasicBlock::Create(context, "body", func);
+  llvm::BasicBlock *cond_1 = llvm::BasicBlock::Create(context, "cond_1", func);
+  llvm::BasicBlock *for_1 = llvm::BasicBlock::Create(context, "for_1", func);
+  llvm::BasicBlock *cond_2 = llvm::BasicBlock::Create(context, "cond_2", func);
+  llvm::BasicBlock *for_2 = llvm::BasicBlock::Create(context, "for_2", func);
+  llvm::BasicBlock *end_for1 = llvm::BasicBlock::Create(context, "end_for1", func);
+  llvm::BasicBlock *end_for2 = llvm::BasicBlock::Create(context, "end_for2", func);
 
   auto args = func->arg_begin();
   llvm::Value *arg_source = &(*args);
@@ -208,19 +221,47 @@ void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
 
   llvm::IRBuilder builder(context);
   builder.SetInsertPoint(body);
-  auto *dest = builder.CreateAddrSpaceCast(arg_source,
-                                           to_llvm_type(context, *field->type())->getPointerTo());
-  auto *val = builder.CreateLoad(arg_source);
-  builder.CreateStore(val, arg_dest);
+  auto i64_t = llvm::Type::getInt64Ty(context);
+  auto *i = builder.CreateAlloca(i64_t);
+  auto *j = builder.CreateAlloca(i64_t);
+  builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), i);
+  builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
+
+  auto *source = builder.CreateAddrSpaceCast(arg_source,
+                                             to_llvm_type(context, *field->type())->getPointerTo());
+  builder.CreateBr(cond_1);
+  builder.SetInsertPoint(cond_1);
+  builder.CreateCondBr(
+      builder.CreateICmpSLT(builder.CreateLoad(i),
+                            builder.CreateUDiv(arg_len, llvm::ConstantInt::get(i64_t, 8))),
+      for_1, end_for1);
+  builder.SetInsertPoint(for_1);
+  auto src = builder.CreateGEP(
+      source, builder.CreateMul(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 8)), "src");
+  builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
+  builder.CreateBr(cond_2);
+  builder.SetInsertPoint(cond_2);
+  builder.CreateCondBr(
+      builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 8)), for_2,
+      end_for2);
+  builder.SetInsertPoint(for_2);
+  auto bit =
+      builder.CreateCall(module.getFunction(field->name() + "_predicate"),
+                         {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))});
+  auto bit_with_shift = builder.CreateShl(
+      bit, builder.CreateSub(llvm::ConstantInt::get(i64_t, 7), builder.CreateLoad(j)));
+  auto updated_bitmap = builder.CreateOr(
+      builder.CreateLoad(builder.CreateGEP(arg_dest, builder.CreateLoad(i))), bit_with_shift);
+  builder.CreateStore(updated_bitmap, builder.CreateGEP(arg_dest, builder.CreateLoad(i)));
+  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 1)),
+                      j);
+  builder.CreateBr(cond_2);
+  builder.SetInsertPoint(end_for2);
+  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 1)),
+                      i);
+  builder.CreateBr(cond_1);
+  builder.SetInsertPoint(end_for1);
   builder.CreateRetVoid();
 }
 
-// void filter(int64_t *a, int8_t *d, int len) {
-//  for (int i = 0; i < len / 8; i++) {
-//    auto src = a + i * 8;
-//    for (int j = 0; j < 8; j++) {
-//      dst[i] |=
-//    }
-//  }
-//}
 } // namespace pefa::backends::naive::kernels

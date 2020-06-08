@@ -38,11 +38,10 @@ TEST_F(NotSegfaultTest, projectionTest) {
   auto p = (bool (*)(int64_t))pefa::jit::get_JIT()->findSymbol("a_predicate").getAddress().get();
 
   auto f = (void (*)(int8_t *, int8_t *, int64_t))sym.getAddress().get();
-  int8_t a = 5;
-  int8_t b = 12;
-  f(&a, &b, 3);
-  p(1);
-  ASSERT_EQ(a, b);
+  int64_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  int8_t b[] = {0};
+  f((int8_t*)a, b, 8);
+  ASSERT_EQ(b[0], 0b00010000);
 }
 
 TEST_F(NotSegfaultTest, expressionsTest) {
