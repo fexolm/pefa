@@ -3,6 +3,14 @@
 //
 
 #include "jit.h"
+#include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/PassRegistry.h"
+#include "llvm/InitializePasses.h"
+
 namespace pefa::jit {
 JIT::JIT()
     : m_target_machine(EngineBuilder().selectTarget()),
@@ -59,15 +67,26 @@ void JIT::removeModule(VModuleKey K) {
 }
 std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> M) {
   auto FPM = std::make_unique<FunctionPassManager>(M.get());
+  auto MPM = std::make_unique<llvm::legacy::PassManager>();
+  using namespace llvm;
+  PassManagerBuilder Builder;
+  Builder.OptLevel = 3;
+  Builder.SizeLevel = 0;
+  Builder.MergeFunctions = true;
+  Builder.Inliner = createFunctionInliningPass(3, 0, false);
+  Builder.DisableUnrollLoops = false;
+  Builder.LoopVectorize = true;
+  Builder.SLPVectorize = true;
+  m_target_machine->adjustPassManager(Builder);
+  Builder.populateFunctionPassManager(*FPM);
   M->print(llvm::errs(), nullptr);
-  FPM->add(createInstructionCombiningPass());
-  FPM->add(createReassociatePass());
-  FPM->add(createGVNPass());
-  FPM->add(createCFGSimplificationPass());
-  FPM->doInitialization();
-
+  MPM->run(*M);
   for (auto &F : *M)
     FPM->run(F);
+  MPM->run(*M);
+  for (auto &F : *M)
+    FPM->run(F);
+
   M->print(llvm::errs(), nullptr);
   return M;
 }
@@ -79,6 +98,44 @@ std::shared_ptr<JIT> get_JIT() {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmPrinter();
     llvm::InitializeNativeTargetAsmParser();
+    using namespace llvm;
+    // Initialize passes
+    PassRegistry &Registry = *PassRegistry::getPassRegistry();
+    initializeCore(Registry);
+    initializeCoroutines(Registry);
+    initializeScalarOpts(Registry);
+    initializeObjCARCOpts(Registry);
+    initializeVectorization(Registry);
+    initializeIPO(Registry);
+    initializeAnalysis(Registry);
+    initializeTransformUtils(Registry);
+    initializeInstCombine(Registry);
+    initializeAggressiveInstCombine(Registry);
+    initializeInstrumentation(Registry);
+    initializeTarget(Registry);
+    // For codegen passes, only passes that do IR to IR transformation are
+    // supported.
+    initializeExpandMemCmpPassPass(Registry);
+    initializeScalarizeMaskedMemIntrinPass(Registry);
+    initializeCodeGenPreparePass(Registry);
+    initializeAtomicExpandPass(Registry);
+    initializeRewriteSymbolsLegacyPassPass(Registry);
+    initializeWinEHPreparePass(Registry);
+    initializeDwarfEHPreparePass(Registry);
+    initializeSafeStackLegacyPassPass(Registry);
+    initializeSjLjEHPreparePass(Registry);
+    initializePreISelIntrinsicLoweringLegacyPassPass(Registry);
+    initializeGlobalMergePass(Registry);
+    initializeIndirectBrExpandPassPass(Registry);
+    initializeInterleavedLoadCombinePass(Registry);
+    initializeInterleavedAccessPass(Registry);
+    initializeEntryExitInstrumenterPass(Registry);
+    initializePostInlineEntryExitInstrumenterPass(Registry);
+    initializeUnreachableBlockElimLegacyPassPass(Registry);
+    initializeExpandReductionsPass(Registry);
+    initializeWasmEHPreparePass(Registry);
+    initializeWriteBitcodePassPass(Registry);
+    initializeHardwareLoopsPass(Registry);
     jit = std::make_shared<JIT>();
     return jit;
   }

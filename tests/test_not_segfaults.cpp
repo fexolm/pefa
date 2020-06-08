@@ -33,8 +33,6 @@ TEST_F(NotSegfaultTest, projectionTest) {
       result->schema(), ((pefa::col("a")->EQ(pefa::lit(4)))->AND(pefa::col("a")->GE(pefa::lit(3))))->OR(pefa::col("b")->EQ(pefa::lit(1))));
 
   auto sym = pefa::jit::get_JIT()->findSymbol("a_filter");
-  auto p = (bool (*)(int64_t))pefa::jit::get_JIT()->findSymbol("a_predicate").getAddress().get();
-
   auto f = (void (*)(int8_t *, int8_t *, int64_t))sym.getAddress().get();
   int64_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
   int8_t b[] = {0};

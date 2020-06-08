@@ -109,7 +109,7 @@ public:
         break;
       }
     } else {
-      auto bool_typ = llvm::Type::getInt8Ty(*m_context);
+      auto bool_typ = llvm::Type::getInt1Ty(*m_context);
       switch (m_last_op) {
       case PredicateExpr::Op::OR:
         m_result = llvm::ConstantInt::get(bool_typ, 0, true);
@@ -158,7 +158,7 @@ llvm::Type *to_llvm_type(llvm::LLVMContext &context, const arrow::DataType &type
 
 void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module, std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr) {
   std::vector<llvm::Type *> param_type{to_llvm_type(context, *field->type())};
-  llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getInt8Ty(context), param_type, false);
+  llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getInt1Ty(context), param_type, false);
   llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage, field->name() + "_predicate", module);
   llvm::BasicBlock *body = llvm::BasicBlock::Create(context, "body", func);
   auto args = func->arg_begin();
@@ -203,6 +203,7 @@ void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module, std::shar
   llvm::IRBuilder builder(context);
   builder.SetInsertPoint(body);
   auto i64_t = llvm::Type::getInt64Ty(context);
+  auto i8_t = llvm::Type::getInt8Ty(context);
   auto *i = builder.CreateAlloca(i64_t);
   auto *j = builder.CreateAlloca(i64_t);
   builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), i);
@@ -220,9 +221,10 @@ void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module, std::shar
   builder.SetInsertPoint(cond_2);
   builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 8)), for_2, end_for2);
   builder.SetInsertPoint(for_2);
-  auto bit = builder.CreateCall(module.getFunction(field->name() + "_predicate"),
-                                {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))});
-  auto bit_with_shift = builder.CreateShl(bit, builder.CreateSub(llvm::ConstantInt::get(i64_t, 7), builder.CreateLoad(j)));
+  auto bit = builder.CreateIntCast(builder.CreateCall(module.getFunction(field->name() + "_predicate"),
+                                {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))}), i8_t, false);
+  auto bit_with_shift =
+      builder.CreateShl(bit, builder.CreateSub(llvm::ConstantInt::get(i8_t, 7), builder.CreateIntCast(builder.CreateLoad(j), i8_t, false)));
   auto updated_bitmap = builder.CreateOr(builder.CreateLoad(builder.CreateGEP(arg_dest, builder.CreateLoad(i))), bit_with_shift);
   builder.CreateStore(updated_bitmap, builder.CreateGEP(arg_dest, builder.CreateLoad(i)));
   builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 1)), j);
