@@ -10,15 +10,11 @@
 
 namespace pefa::backends::naive::kernels {
 using namespace internal;
-std::unique_ptr<llvm::Module> gen_filter(llvm::LLVMContext &context,
-                                         std::shared_ptr<arrow::Field> field,
-                                         std::shared_ptr<Expr> expr);
+std::unique_ptr<llvm::Module> gen_filter(llvm::LLVMContext &context, std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr);
 
-void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module,
-                        std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr);
+void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module, std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr);
 
-void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
-                     std::shared_ptr<arrow::Field> field);
+void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module, std::shared_ptr<arrow::Field> field);
 
 class IrEmitVisitor : public ExprVisitor {
 private:
@@ -33,8 +29,7 @@ private:
   PredicateExpr::Op m_last_op{PredicateExpr::Op::AND};
 
 public:
-  IrEmitVisitor(llvm::LLVMContext *context, llvm::IRBuilder<> *builder,
-                std::shared_ptr<arrow::Field> field, llvm::Value *input)
+  IrEmitVisitor(llvm::LLVMContext *context, llvm::IRBuilder<> *builder, std::shared_ptr<arrow::Field> field, llvm::Value *input)
       : m_result(nullptr), m_builder(builder), m_context(context), m_field(field), m_input(input) {}
 
   void visit(const PredicateExpr &expr) override {
@@ -61,8 +56,7 @@ public:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
           auto i64_typ = llvm::Type::getInt64Ty(*m_context);
-          m_result = m_builder->CreateICmpSGT(
-              m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
+          m_result = m_builder->CreateICmpSGT(m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
           break;
         }
         default:
@@ -73,8 +67,7 @@ public:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
           auto i64_typ = llvm::Type::getInt64Ty(*m_context);
-          m_result = m_builder->CreateICmpSLT(
-              m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
+          m_result = m_builder->CreateICmpSLT(m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
           break;
         }
         default:
@@ -85,8 +78,7 @@ public:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
           auto i64_typ = llvm::Type::getInt64Ty(*m_context);
-          m_result = m_builder->CreateICmpSGE(
-              m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
+          m_result = m_builder->CreateICmpSGE(m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
           break;
         }
         default:
@@ -97,8 +89,7 @@ public:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
           auto i64_typ = llvm::Type::getInt64Ty(*m_context);
-          m_result = m_builder->CreateICmpSLE(
-              m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
+          m_result = m_builder->CreateICmpSLE(m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
           break;
         }
         default:
@@ -109,8 +100,7 @@ public:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
           auto i64_typ = llvm::Type::getInt64Ty(*m_context);
-          m_result = m_builder->CreateICmpEQ(
-              m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
+          m_result = m_builder->CreateICmpEQ(m_input, llvm::ConstantInt::get(i64_typ, std::get<int64_t>(expr.rhs->value), true));
           break;
         }
         default:
@@ -148,9 +138,7 @@ void gen_filters(std::shared_ptr<arrow::Schema> schema, std::shared_ptr<Expr> ex
   }
 }
 
-std::unique_ptr<llvm::Module> gen_filter(llvm::LLVMContext &context,
-                                         std::shared_ptr<arrow::Field> field,
-                                         std::shared_ptr<Expr> expr) {
+std::unique_ptr<llvm::Module> gen_filter(llvm::LLVMContext &context, std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr) {
   auto module = std::make_unique<llvm::Module>(field->name() + "_filter_mod", context);
 
   gen_predicate_func(context, *module, field, expr);
@@ -168,13 +156,10 @@ llvm::Type *to_llvm_type(llvm::LLVMContext &context, const arrow::DataType &type
   }
 }
 
-void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module,
-                        std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr) {
+void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module, std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr) {
   std::vector<llvm::Type *> param_type{to_llvm_type(context, *field->type())};
-  llvm::FunctionType *prototype =
-      llvm::FunctionType::get(llvm::Type::getInt8Ty(context), param_type, false);
-  llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage,
-                                                field->name() + "_predicate", module);
+  llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getInt8Ty(context), param_type, false);
+  llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage, field->name() + "_predicate", module);
   llvm::BasicBlock *body = llvm::BasicBlock::Create(context, "body", func);
   auto args = func->arg_begin();
   llvm::Value *val = &(*args);
@@ -194,16 +179,12 @@ void gen_predicate_func(llvm::LLVMContext &context, llvm::Module &module,
 //    }
 //  }
 //}
-void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
-                     std::shared_ptr<arrow::Field> field) {
-  std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(context, 1),
-                                       llvm::Type::getInt8PtrTy(context, 1),
+void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module, std::shared_ptr<arrow::Field> field) {
+  std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(context, 1), llvm::Type::getInt8PtrTy(context, 1),
                                        llvm::Type::getInt64Ty(context)};
 
-  llvm::FunctionType *prototype =
-      llvm::FunctionType::get(llvm::Type::getVoidTy(context), param_type, false);
-  llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage,
-                                                field->name() + "_filter", module);
+  llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getVoidTy(context), param_type, false);
+  llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage, field->name() + "_filter", module);
   llvm::BasicBlock *body = llvm::BasicBlock::Create(context, "body", func);
   llvm::BasicBlock *cond_1 = llvm::BasicBlock::Create(context, "cond_1", func);
   llvm::BasicBlock *for_1 = llvm::BasicBlock::Create(context, "for_1", func);
@@ -227,38 +208,27 @@ void gen_filter_func(llvm::LLVMContext &context, llvm::Module &module,
   builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), i);
   builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
 
-  auto *source = builder.CreateAddrSpaceCast(arg_source,
-                                             to_llvm_type(context, *field->type())->getPointerTo());
+  auto *source = builder.CreateAddrSpaceCast(arg_source, to_llvm_type(context, *field->type())->getPointerTo());
   builder.CreateBr(cond_1);
   builder.SetInsertPoint(cond_1);
-  builder.CreateCondBr(
-      builder.CreateICmpSLT(builder.CreateLoad(i),
-                            builder.CreateUDiv(arg_len, llvm::ConstantInt::get(i64_t, 8))),
-      for_1, end_for1);
+  builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(i), builder.CreateUDiv(arg_len, llvm::ConstantInt::get(i64_t, 8))), for_1,
+                       end_for1);
   builder.SetInsertPoint(for_1);
-  auto src = builder.CreateGEP(
-      source, builder.CreateMul(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 8)), "src");
+  auto src = builder.CreateGEP(source, builder.CreateMul(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 8)), "src");
   builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
   builder.CreateBr(cond_2);
   builder.SetInsertPoint(cond_2);
-  builder.CreateCondBr(
-      builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 8)), for_2,
-      end_for2);
+  builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 8)), for_2, end_for2);
   builder.SetInsertPoint(for_2);
-  auto bit =
-      builder.CreateCall(module.getFunction(field->name() + "_predicate"),
-                         {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))});
-  auto bit_with_shift = builder.CreateShl(
-      bit, builder.CreateSub(llvm::ConstantInt::get(i64_t, 7), builder.CreateLoad(j)));
-  auto updated_bitmap = builder.CreateOr(
-      builder.CreateLoad(builder.CreateGEP(arg_dest, builder.CreateLoad(i))), bit_with_shift);
+  auto bit = builder.CreateCall(module.getFunction(field->name() + "_predicate"),
+                                {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))});
+  auto bit_with_shift = builder.CreateShl(bit, builder.CreateSub(llvm::ConstantInt::get(i64_t, 7), builder.CreateLoad(j)));
+  auto updated_bitmap = builder.CreateOr(builder.CreateLoad(builder.CreateGEP(arg_dest, builder.CreateLoad(i))), bit_with_shift);
   builder.CreateStore(updated_bitmap, builder.CreateGEP(arg_dest, builder.CreateLoad(i)));
-  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 1)),
-                      j);
+  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 1)), j);
   builder.CreateBr(cond_2);
   builder.SetInsertPoint(end_for2);
-  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 1)),
-                      i);
+  builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 1)), i);
   builder.CreateBr(cond_1);
   builder.SetInsertPoint(end_for1);
   builder.CreateRetVoid();

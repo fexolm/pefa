@@ -20,9 +20,8 @@ TEST_F(NotSegfaultTest, projectionTest) {
   auto file_result = arrow::io::ReadableFile::Open(TEST_DATA_DIR "/projection_test.csv");
   auto inp = file_result.ValueOrDie();
 
-  auto table_reader = arrow::csv::TableReader::Make(memory_pool, inp, arrow_read_options,
-                                                    arrow_parse_options, arrow_convert_options)
-                          .ValueOrDie();
+  auto table_reader =
+      arrow::csv::TableReader::Make(memory_pool, inp, arrow_read_options, arrow_parse_options, arrow_convert_options).ValueOrDie();
 
   auto table = table_reader->Read().ValueOrDie();
 
@@ -31,8 +30,7 @@ TEST_F(NotSegfaultTest, projectionTest) {
   auto result = ctx.project({"a", "b"}).execute();
 
   pefa::backends::naive::kernels::gen_filters(
-      result->schema(), ((pefa::col("a")->EQ(pefa::lit(4)))->AND(pefa::col("a")->GE(pefa::lit(3))))
-                            ->OR(pefa::col("b")->EQ(pefa::lit(1))));
+      result->schema(), ((pefa::col("a")->EQ(pefa::lit(4)))->AND(pefa::col("a")->GE(pefa::lit(3))))->OR(pefa::col("b")->EQ(pefa::lit(1))));
 
   auto sym = pefa::jit::get_JIT()->findSymbol("a_filter");
   auto p = (bool (*)(int64_t))pefa::jit::get_JIT()->findSymbol("a_predicate").getAddress().get();
@@ -40,7 +38,7 @@ TEST_F(NotSegfaultTest, projectionTest) {
   auto f = (void (*)(int8_t *, int8_t *, int64_t))sym.getAddress().get();
   int64_t a[] = {1, 2, 3, 4, 5, 6, 7, 8};
   int8_t b[] = {0};
-  f((int8_t*)a, b, 8);
+  f((int8_t *)a, b, 8);
   ASSERT_EQ(b[0], 0b00010000);
 }
 
