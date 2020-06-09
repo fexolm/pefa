@@ -8,19 +8,17 @@ using namespace pefa::internal;
 class FilterKernelTest : public ::testing::Test {};
 
 TEST_F(FilterKernelTest, testFilter) {
-  auto column_length = 10;
-
-  std::vector<int64_t> values = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-  auto column_buffer = arrow::AllocateBuffer(sizeof(uint64_t) * column_length).ValueOrDie();
+  std::vector<int64_t> values = {0, 4, 2, 4, 4, 5, 4, 7, 4, 9, 12, 4, 3};
+  auto column_buffer = arrow::AllocateBuffer(sizeof(uint64_t) * values.size()).ValueOrDie();
   auto data = reinterpret_cast<int64_t *>(column_buffer->mutable_data());
-  for (int i = 0; i < column_length; i++) {
+  for (int i = 0; i < values.size(); i++) {
     data[i] = values[i];
   }
 
-  auto bitmap_buffer = arrow::AllocateEmptyBitmap(column_length).ValueOrDie();
+  auto bitmap_buffer = arrow::AllocateEmptyBitmap(values.size()).ValueOrDie();
 
-  auto column = std::make_shared<arrow::Int64Array>(column_length, std::shared_ptr(std::move(column_buffer)));
-  auto bitmap = std::make_shared<arrow::UInt8Array>(column_length / 8 + 1, bitmap_buffer);
+  auto column = std::make_shared<arrow::Int64Array>(values.size(), std::shared_ptr(std::move(column_buffer)));
+  auto bitmap = std::make_shared<arrow::UInt8Array>(values.size() / 8 + 1, bitmap_buffer);
 
   auto field = std::make_shared<arrow::Field>("A", arrow::int64());
   auto expr = ((pefa::col("A")->EQ(pefa::lit(4)))->AND(pefa::col("A")->GE(pefa::lit(3))))->OR(pefa::col("B")->EQ(pefa::lit(1)));
@@ -29,5 +27,7 @@ TEST_F(FilterKernelTest, testFilter) {
 
   filter->execute(column, bitmap);
 
-  ASSERT_EQ(bitmap_buffer->data()[0], 0b00001000);
+  ASSERT_EQ(bitmap_buffer->data()[0], 0b01011010);
+  ASSERT_EQ(bitmap_buffer->data()[1], 0b10010000);
+
 }

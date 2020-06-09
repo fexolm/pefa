@@ -157,6 +157,7 @@ private:
     if (!m_is_compiled) {
       auto module = std::make_unique<llvm::Module>(m_field->name() + "_filter_mod", m_context);
       gen_predicate_func(*module);
+      gen_filter_last_elemetns(*module);
       gen_filter_func(*module);
       auto &machine = m_jit->getTargetMachine();
       auto layout = machine.createDataLayout();
@@ -193,6 +194,67 @@ private:
   //         b[i] |= a;
   //     }
   // }
+
+  void gen_filter_last_elemetns(llvm::Module &module) {
+    auto i8_t = llvm::Type::getInt8Ty(m_context);
+    auto i64_t = llvm::Type::getInt64Ty(m_context);
+
+    std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 1), llvm::Type::getInt8PtrTy(m_context, 1),
+                                         llvm::Type::getInt64Ty(m_context)};
+    llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getVoidTy(m_context), param_type, false);
+    llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::InternalLinkage, m_field->name() + "_filter_last", module);
+    llvm::BasicBlock *body = llvm::BasicBlock::Create(m_context, "body", func);
+    llvm::BasicBlock *cond = llvm::BasicBlock::Create(m_context, "cond", func);
+    llvm::BasicBlock *loop = llvm::BasicBlock::Create(m_context, "for", func);
+    llvm::BasicBlock *end_loop = llvm::BasicBlock::Create(m_context, "end_for", func);
+
+    auto args = func->arg_begin();
+    llvm::Value *arg_source = &(*args);
+    args = std::next(args);
+    llvm::Value *arg_dest = &(*args);
+    args = std::next(args);
+    llvm::Value *arg_len = &(*args);
+
+    llvm::IRBuilder builder(m_context);
+
+    builder.SetInsertPoint(body);
+    auto *i = builder.CreateAlloca(i8_t, nullptr, "i");
+    auto *source = builder.CreateAddrSpaceCast(arg_source, to_llvm_type(m_context, *m_field->type())->getPointerTo());
+    source = builder.CreateInBoundsGEP(source, builder.CreateSub(arg_len, builder.CreateURem(arg_len, llvm::ConstantInt::get(i64_t, 8))));
+    auto dest = builder.CreateInBoundsGEP(arg_dest, builder.CreateUDiv(arg_len, llvm::ConstantInt::get(i64_t, 8)));
+    builder.CreateStore(llvm::ConstantInt::get(i8_t, 0), i);
+    builder.CreateBr(cond);
+    builder.SetInsertPoint(cond);
+    builder.CreateCondBr(
+        builder.CreateICmpSLT(builder.CreateLoad(i),
+                              builder.CreateIntCast(builder.CreateURem(arg_len, llvm::ConstantInt::get(i64_t, 8)), i8_t, false)),
+        loop, end_loop);
+
+    builder.SetInsertPoint(loop);
+    auto bit = builder.CreateIntCast(builder.CreateCall(module.getFunction(m_field->name() + "_predicate"),
+                                                        {builder.CreateLoad(builder.CreateInBoundsGEP(source, builder.CreateLoad(i)))}),
+                                     i8_t, false);
+
+    auto bit_with_shift = builder.CreateShl(bit, builder.CreateSub(llvm::ConstantInt::get(i8_t, 7), builder.CreateLoad(i)));
+    builder.CreateStore(builder.CreateOr(builder.CreateLoad(dest), bit_with_shift), dest);
+    builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), llvm::ConstantInt::get(i8_t, 1)), i);
+    builder.CreateBr(cond);
+
+    builder.SetInsertPoint(end_loop);
+    builder.CreateRetVoid();
+  }
+
+  // void filter(int *a, char *b, int len) {
+  //     for(int i=0; i<len / 8; i++) {
+  //         int *src = a + i * 8;
+  //         char a = 0;
+  //         for(int j=0; j<8; j++) {
+  //            a = a | predicate(src[j]) << (7 - j);
+  //         }
+  //         b[i] |= a;
+  //     }
+  // }
+
   void gen_filter_func(llvm::Module &module) {
     std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 1), llvm::Type::getInt8PtrTy(m_context, 1),
                                          llvm::Type::getInt64Ty(m_context)};
@@ -258,6 +320,7 @@ private:
     builder.CreateBr(cond_1);
 
     builder.SetInsertPoint(end_for1);
+    builder.CreateCall(module.getFunction(m_field->name() + "_filter_last"), {arg_source, arg_dest, arg_len});
     builder.CreateRetVoid();
   }
 };

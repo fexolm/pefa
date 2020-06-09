@@ -92,9 +92,9 @@ void addLinkPasses(llvm::legacy::PassManagerBase &passes) {
 }
 
 std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
-  module->print(llvm::errs(), nullptr);
   auto &machine = getTargetMachine();
   llvm::legacy::PassManager passes;
+  passes.add(llvm::createVerifierPass());
   passes.add(new llvm::TargetLibraryInfoWrapperPass(machine.getTargetTriple()));
   passes.add(llvm::createTargetTransformInfoWrapperPass(machine.getTargetIRAnalysis()));
 
@@ -112,8 +112,6 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
 
   passes.add(llvm::createVerifierPass());
   passes.run(*module);
-  module->print(llvm::errs(), nullptr);
-
   return module;
 }
 std::shared_ptr<JIT> get_JIT() {
