@@ -1,23 +1,20 @@
 #include "jit.h"
 
 #include <llvm/ADT/STLExtras.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/OrcV1Deprecation.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Mangler.h>
 #include <llvm/IR/Verifier.h>
-#include <llvm/InitializePasses.h>
-#include <llvm/PassRegistry.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
-#include <llvm/Transforms/IPO/AlwaysInliner.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
-#include <llvm/Transforms/InstCombine/InstCombine.h>
-#include <llvm/Transforms/Scalar.h>
-#include <llvm/Transforms/Scalar/GVN.h>
-#include <llvm/Transforms/Vectorize.h>
 
 namespace pefa::jit {
 JIT::JIT()
@@ -61,28 +58,50 @@ JITSymbol JIT::findSymbol(std::string Name) {
 void JIT::removeModule(VModuleKey K) {
   cantFail(m_optimize_layer.removeModule(K));
 }
-std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> M) {
-  auto FPM = std::make_unique<llvm::legacy::FunctionPassManager>(M.get());
-  auto MPM = std::make_unique<llvm::legacy::PassManager>();
-  using namespace llvm;
-  PassManagerBuilder Builder;
-  Builder.OptLevel = 3;
-  Builder.SizeLevel = 0;
-  Builder.MergeFunctions = true;
-  Builder.Inliner = createFunctionInliningPass(3, 0, false);
-  Builder.DisableUnrollLoops = false;
-  Builder.LoopVectorize = true;
-  Builder.SLPVectorize = true;
-  m_target_machine->adjustPassManager(Builder);
-  Builder.populateFunctionPassManager(*FPM);
-  FPM->doInitialization();
-  for (auto &F : *M)
-    FPM->run(F);
-  FPM->doFinalization();
-  MPM->run(*M);
-  return M;
+
+void addOptPasses(llvm::legacy::PassManagerBase &passes, llvm::legacy::FunctionPassManager &fnPasses, llvm::TargetMachine &machine) {
+  llvm::PassManagerBuilder builder;
+  builder.OptLevel = 3;
+  builder.SizeLevel = 0;
+  builder.Inliner = llvm::createFunctionInliningPass(3, 0, false);
+  builder.LoopVectorize = true;
+  builder.SLPVectorize = true;
+  machine.adjustPassManager(builder);
+
+  builder.populateFunctionPassManager(fnPasses);
+  builder.populateModulePassManager(passes);
 }
 
+void addLinkPasses(llvm::legacy::PassManagerBase &passes) {
+  llvm::PassManagerBuilder builder;
+  builder.VerifyInput = true;
+  builder.Inliner = llvm::createFunctionInliningPass(3, 0, false);
+  builder.populateLTOPassManager(passes);
+}
+
+std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
+  auto &machine = getTargetMachine();
+  llvm::legacy::PassManager passes;
+  passes.add(new llvm::TargetLibraryInfoWrapperPass(machine.getTargetTriple()));
+  passes.add(llvm::createTargetTransformInfoWrapperPass(machine.getTargetIRAnalysis()));
+
+  llvm::legacy::FunctionPassManager fnPasses(module.get());
+  fnPasses.add(llvm::createTargetTransformInfoWrapperPass(machine.getTargetIRAnalysis()));
+
+  addOptPasses(passes, fnPasses, machine);
+  addLinkPasses(passes);
+
+  fnPasses.doInitialization();
+  for (llvm::Function &func : *module) {
+    fnPasses.run(func);
+  }
+  fnPasses.doFinalization();
+
+  passes.add(llvm::createVerifierPass());
+  passes.run(*module);
+  module->print(llvm::errs(), nullptr);
+  return module;
+}
 std::shared_ptr<JIT> get_JIT() {
   static std::shared_ptr<JIT> jit;
   if (jit) {

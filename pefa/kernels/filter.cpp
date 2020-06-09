@@ -184,7 +184,7 @@ private:
   }
 
   void gen_filter_func(llvm::Module &module) {
-    std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 0), llvm::Type::getInt8PtrTy(m_context, 0),
+    std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 1), llvm::Type::getInt8PtrTy(m_context, 1),
                                          llvm::Type::getInt64Ty(m_context)};
 
     llvm::FunctionType *prototype = llvm::FunctionType::get(llvm::Type::getVoidTy(m_context), param_type, false);
