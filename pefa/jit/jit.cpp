@@ -11,7 +11,6 @@
 #include <llvm/PassRegistry.h>
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/TargetSelect.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/AlwaysInliner.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
@@ -76,16 +75,14 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> M) {
   Builder.SLPVectorize = true;
   m_target_machine->adjustPassManager(Builder);
   Builder.populateFunctionPassManager(*FPM);
-  M->print(llvm::errs(), nullptr);
-
   FPM->doInitialization();
   for (auto &F : *M)
     FPM->run(F);
   FPM->doFinalization();
   MPM->run(*M);
-  M->print(llvm::errs(), nullptr);
   return M;
 }
+
 std::shared_ptr<JIT> get_JIT() {
   static std::shared_ptr<JIT> jit;
   if (jit) {

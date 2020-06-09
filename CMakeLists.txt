@@ -19,8 +19,8 @@ find_package(LLVM REQUIRED)
 
 add_library(pefa
         pefa/backends/naive/backend.cpp
-        pefa/backends/naive/kernels/filter.cpp
-        pefa/expressions/expressions.cpp
+        pefa/kernels/filter.cpp
+        pefa/api/expressions.cpp
         pefa/jit/jit.cpp
         )
 add_dependencies(pefa ${DEPS_LIST})
