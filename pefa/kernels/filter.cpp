@@ -183,6 +183,16 @@ private:
     builder.CreateRet(visitor.result());
   }
 
+  // void filter(int *a, char *b, int len) {
+  //     for(int i=0; i<len / 8; i++) {
+  //         int *src = a + i * 8;
+  //         char a = 0;
+  //         for(int j=0; j<8; j++) {
+  //            a = a | predicate(src[j]) << (7 - j);
+  //         }
+  //         b[i] |= a;
+  //     }
+  // }
   void gen_filter_func(llvm::Module &module) {
     std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 1), llvm::Type::getInt8PtrTy(m_context, 1),
                                          llvm::Type::getInt64Ty(m_context)};
@@ -208,35 +218,45 @@ private:
     builder.SetInsertPoint(body);
     auto i64_t = llvm::Type::getInt64Ty(m_context);
     auto i8_t = llvm::Type::getInt8Ty(m_context);
-    auto *i = builder.CreateAlloca(i64_t);
-    auto *j = builder.CreateAlloca(i64_t);
+    auto *i = builder.CreateAlloca(i64_t, nullptr, "i");
+    auto *j = builder.CreateAlloca(i8_t, nullptr, "j");
+    auto *tmp_bitmap = builder.CreateAlloca(i8_t, nullptr, "tmp_bitmap");
     builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), i);
     builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
-
     auto *source = builder.CreateAddrSpaceCast(arg_source, to_llvm_type(m_context, *m_field->type())->getPointerTo());
     builder.CreateBr(cond_1);
+
     builder.SetInsertPoint(cond_1);
     builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(i), builder.CreateUDiv(arg_len, llvm::ConstantInt::get(i64_t, 8))), for_1,
                          end_for1);
+
     builder.SetInsertPoint(for_1);
-    auto src = builder.CreateGEP(source, builder.CreateMul(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 8)), "src");
-    builder.CreateStore(llvm::ConstantInt::get(i64_t, 0), j);
+    auto li = builder.CreateLoad(i);
+    auto src = builder.CreateInBoundsGEP(source, builder.CreateMul(li, llvm::ConstantInt::get(i64_t, 8)), "src");
+    builder.CreateStore(llvm::ConstantInt::get(i8_t, 0), j);
+    builder.CreateStore(llvm::ConstantInt::get(i8_t, 0), tmp_bitmap);
     builder.CreateBr(cond_2);
+
     builder.SetInsertPoint(cond_2);
-    builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 8)), for_2, end_for2);
+    builder.CreateCondBr(builder.CreateICmpSLT(builder.CreateLoad(j), llvm::ConstantInt::get(i8_t, 8)), for_2, end_for2);
+
     builder.SetInsertPoint(for_2);
     auto bit = builder.CreateIntCast(builder.CreateCall(module.getFunction(m_field->name() + "_predicate"),
-                                                        {builder.CreateLoad(builder.CreateGEP(src, builder.CreateLoad(j)))}),
+                                                        {builder.CreateLoad(builder.CreateInBoundsGEP(src, builder.CreateLoad(j)))}),
                                      i8_t, false);
-    auto bit_with_shift = builder.CreateShl(
-        bit, builder.CreateSub(llvm::ConstantInt::get(i8_t, 7), builder.CreateIntCast(builder.CreateLoad(j), i8_t, false)));
-    auto updated_bitmap = builder.CreateOr(builder.CreateLoad(builder.CreateGEP(arg_dest, builder.CreateLoad(i))), bit_with_shift);
-    builder.CreateStore(updated_bitmap, builder.CreateGEP(arg_dest, builder.CreateLoad(i)));
-    builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i64_t, 1)), j);
+
+    auto bit_with_shift = builder.CreateShl(bit, builder.CreateSub(llvm::ConstantInt::get(i8_t, 7), builder.CreateLoad(j)));
+    builder.CreateStore(builder.CreateOr(builder.CreateLoad(tmp_bitmap), bit_with_shift), tmp_bitmap);
+    builder.CreateStore(builder.CreateAdd(builder.CreateLoad(j), llvm::ConstantInt::get(i8_t, 1)), j);
     builder.CreateBr(cond_2);
+
     builder.SetInsertPoint(end_for2);
+    auto updated_bitmap =
+        builder.CreateOr(builder.CreateLoad(builder.CreateInBoundsGEP(arg_dest, builder.CreateLoad(i))), builder.CreateLoad(tmp_bitmap));
+    builder.CreateStore(updated_bitmap, builder.CreateInBoundsGEP(arg_dest, builder.CreateLoad(i)));
     builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), llvm::ConstantInt::get(i64_t, 1)), i);
     builder.CreateBr(cond_1);
+
     builder.SetInsertPoint(end_for1);
     builder.CreateRetVoid();
   }

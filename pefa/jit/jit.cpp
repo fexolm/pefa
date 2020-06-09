@@ -3,7 +3,6 @@
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/Analysis/TargetTransformInfo.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/OrcV1Deprecation.h>
 #include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/LegacyPassManager.h>
@@ -17,8 +16,21 @@
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 
 namespace pefa::jit {
+
+std::unique_ptr<EngineBuilder> createEngineBuilder() {
+  auto engine_builder = std::make_unique<EngineBuilder>();
+  engine_builder->setMCPU(llvm::sys::getHostCPUName());
+  engine_builder->setEngineKind(llvm::EngineKind::JIT);
+  engine_builder->setOptLevel(llvm::CodeGenOpt::Aggressive);
+  llvm::TargetOptions target_options;
+  target_options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+  engine_builder->setTargetOptions(target_options);
+  return engine_builder;
+}
+
 JIT::JIT()
-    : m_target_machine(EngineBuilder().selectTarget()), m_data_layout(m_target_machine->createDataLayout()),
+    : m_engine_builder(createEngineBuilder()), m_target_machine(m_engine_builder->selectTarget()),
+      m_data_layout(m_target_machine->createDataLayout()),
       m_object_layer(AcknowledgeORCv1Deprecation, m_session,
                      [this](VModuleKey K) {
                        return LegacyRTDyldObjectLinkingLayer::Resources{std::make_shared<SectionMemoryManager>(), m_resolvers[K]};
@@ -80,6 +92,7 @@ void addLinkPasses(llvm::legacy::PassManagerBase &passes) {
 }
 
 std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
+  module->print(llvm::errs(), nullptr);
   auto &machine = getTargetMachine();
   llvm::legacy::PassManager passes;
   passes.add(new llvm::TargetLibraryInfoWrapperPass(machine.getTargetTriple()));
@@ -100,6 +113,7 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
   passes.add(llvm::createVerifierPass());
   passes.run(*module);
   module->print(llvm::errs(), nullptr);
+
   return module;
 }
 std::shared_ptr<JIT> get_JIT() {
@@ -108,8 +122,8 @@ std::shared_ptr<JIT> get_JIT() {
     return jit;
   } else {
     llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmPrinter();
     llvm::InitializeNativeTargetAsmParser();
+    llvm::InitializeNativeTargetAsmPrinter();
     jit = std::make_shared<JIT>();
     return jit;
   }

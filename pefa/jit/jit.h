@@ -1,4 +1,5 @@
 #pragma once
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
 #include <llvm/ExecutionEngine/JITSymbol.h>
 #include <llvm/ExecutionEngine/Orc/CompileUtils.h>
 #include <llvm/ExecutionEngine/Orc/Core.h>
@@ -23,9 +24,10 @@ using namespace llvm::orc;
 namespace pefa::jit {
 class JIT {
 private:
+  std::unique_ptr<EngineBuilder> m_engine_builder;
   ExecutionSession m_session;
   std::map<VModuleKey, std::shared_ptr<SymbolResolver>> m_resolvers;
-  std::unique_ptr<TargetMachine> m_target_machine;
+  TargetMachine *m_target_machine;
   const DataLayout m_data_layout;
   LegacyRTDyldObjectLinkingLayer m_object_layer;
   LegacyIRCompileLayer<decltype(m_object_layer), SimpleCompiler> m_compile_layer;
