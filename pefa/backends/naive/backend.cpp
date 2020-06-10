@@ -21,6 +21,7 @@ std::shared_ptr<arrow::Table> Backend::execute(std::shared_ptr<Context> ctx) {
   return ctx->table;
 }
 std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shared_ptr<internal::Expr> expr) {
+  // TODO: make that implementation parallel
   auto schema = ctx->table->schema();
   auto fields_count = schema->num_fields();
   if (fields_count == 0 || ctx->table->column(0)->num_chunks() == 0) {
@@ -47,6 +48,9 @@ std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shar
     }
   }
   // TODO: process skipped by filter bitmaps
+  // we don't process unaligned elements (e.g last and first) in each chunk
+  // we do need extra pass to process them
+  // unaligned means elements from different chunk, that should share the same bitmap
   auto result_buf = column_bitmap[0]->mutable_data();
   for (int i = 1; i < fields_count; i++) {
     auto current_buf = column_bitmap[i]->data();
@@ -55,6 +59,10 @@ std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shar
     }
   }
   // TODO: apply filter to all columns
+  // As a solution for this we can calculate length of all arrays by using popcnt
+  // Then allocate blocks with that lengths (merge small blocks if any)
+  // And create chunks in parallel
+  // Very big chunks can be split later by slicing
 
   return std::make_shared<Context>(ctx->table); // TODO: return generated table context
 }
