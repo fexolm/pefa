@@ -29,14 +29,17 @@ std::unique_ptr<EngineBuilder> createEngineBuilder() {
 }
 
 JIT::JIT()
-    : m_engine_builder(createEngineBuilder()), m_target_machine(m_engine_builder->selectTarget()),
-      m_data_layout(m_target_machine->createDataLayout()),
-      m_object_layer(AcknowledgeORCv1Deprecation, m_session,
+    : m_engine_builder(createEngineBuilder())
+    , m_target_machine(m_engine_builder->selectTarget())
+    , m_data_layout(m_target_machine->createDataLayout())
+    , m_object_layer(AcknowledgeORCv1Deprecation, m_session,
                      [this](VModuleKey K) {
-                       return LegacyRTDyldObjectLinkingLayer::Resources{std::make_shared<SectionMemoryManager>(), m_resolvers[K]};
-                     }),
-      m_compile_layer(AcknowledgeORCv1Deprecation, m_object_layer, SimpleCompiler(*m_target_machine)),
-      m_optimize_layer(AcknowledgeORCv1Deprecation, m_compile_layer,
+                       return LegacyRTDyldObjectLinkingLayer::Resources{
+                           std::make_shared<SectionMemoryManager>(), m_resolvers[K]};
+                     })
+    , m_compile_layer(AcknowledgeORCv1Deprecation, m_object_layer,
+                      SimpleCompiler(*m_target_machine))
+    , m_optimize_layer(AcknowledgeORCv1Deprecation, m_compile_layer,
                        [this](std::unique_ptr<Module> M) { return optimizeModule(std::move(M)); }) {
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 }
@@ -71,7 +74,8 @@ void JIT::removeModule(VModuleKey K) {
   cantFail(m_optimize_layer.removeModule(K));
 }
 
-void addOptPasses(llvm::legacy::PassManagerBase &passes, llvm::legacy::FunctionPassManager &fnPasses, llvm::TargetMachine &machine) {
+void addOptPasses(llvm::legacy::PassManagerBase &passes,
+                  llvm::legacy::FunctionPassManager &fnPasses, llvm::TargetMachine &machine) {
   llvm::PassManagerBuilder builder;
   builder.OptLevel = 3;
   builder.SizeLevel = 0;
@@ -112,7 +116,6 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
 
   passes.add(llvm::createVerifierPass());
   passes.run(*module);
-  module->print(llvm::errs(), nullptr, true);
   return module;
 }
 std::shared_ptr<JIT> get_JIT() {

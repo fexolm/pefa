@@ -33,7 +33,8 @@ struct PredicateExpr : BooleanExpr {
   const Op op;
 
   PredicateExpr(std::shared_ptr<BooleanExpr> lhs, std::shared_ptr<BooleanExpr> rhs, Op op);
-  static std::shared_ptr<PredicateExpr> create(std::shared_ptr<BooleanExpr> lhs, std::shared_ptr<BooleanExpr> rhs, Op op);
+  static std::shared_ptr<PredicateExpr> create(std::shared_ptr<BooleanExpr> lhs,
+                                               std::shared_ptr<BooleanExpr> rhs, Op op);
   void visit(ExprVisitor &visitor) override;
 };
 
@@ -55,7 +56,8 @@ struct CompareExpr : BooleanExpr {
 
   CompareExpr(std::shared_ptr<ColumnRef> lhs, std::shared_ptr<LiteralExpr> rhs, Op op);
 
-  static std::shared_ptr<CompareExpr> create(std::shared_ptr<ColumnRef> lhs, std::shared_ptr<LiteralExpr> rhs, Op op);
+  static std::shared_ptr<CompareExpr> create(std::shared_ptr<ColumnRef> lhs,
+                                             std::shared_ptr<LiteralExpr> rhs, Op op);
   void visit(ExprVisitor &visitor) override;
 };
 
@@ -96,7 +98,8 @@ inline std::shared_ptr<internal::ColumnRef> col(std::string name) {
   return internal::ColumnRef::create(name);
 }
 
-inline std::shared_ptr<internal::LiteralExpr> lit(std::variant<int64_t, double, std::string, bool> val) {
+inline std::shared_ptr<internal::LiteralExpr>
+lit(std::variant<int64_t, double, std::string, bool> val) {
   return internal::LiteralExpr::create(val);
 }
 } // namespace pefa

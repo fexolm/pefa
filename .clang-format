@@ -1,6 +1,11 @@
 BasedOnStyle: LLVM
 
 Language: Cpp
-ColumnLimit: 140
+ColumnLimit: 100
 IncludeBlocks: Regroup
+SortIncludes: true
 AllowShortFunctionsOnASingleLine: Empty
+AlignConsecutiveMacros: true
+AlignOperands: true
+BreakConstructorInitializers: BeforeComma
+Standard: c++20

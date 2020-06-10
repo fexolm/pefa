@@ -12,7 +12,9 @@ public:
   // which should be processed separately to avoid data dependency between chunks
 
   virtual void execute(std::shared_ptr<arrow::Array>, uint8_t *bitmap, size_t offset) = 0;
-  static std::unique_ptr<FilterKernel> create_cpu(std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr);
+  virtual void compile() = 0;
+  static std::unique_ptr<FilterKernel> create_cpu(std::shared_ptr<arrow::Field> field,
+                                                  std::shared_ptr<Expr> expr);
   virtual ~FilterKernel() = default;
 };
 } // namespace pefa::internal::kernels

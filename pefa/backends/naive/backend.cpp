@@ -6,7 +6,8 @@
 
 namespace pefa::backends::naive {
 using namespace internal;
-std::shared_ptr<Context> Backend::project(std::shared_ptr<Context> ctx, std::vector<std::string> column_names) {
+std::shared_ptr<Context> Backend::project(std::shared_ptr<Context> ctx,
+                                          std::vector<std::string> column_names) {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(column_names.size());
   std::vector<std::shared_ptr<arrow::Field>> fields(column_names.size());
   for (int i = 0; i < column_names.size(); i++) {
@@ -14,13 +15,15 @@ std::shared_ptr<Context> Backend::project(std::shared_ptr<Context> ctx, std::vec
     fields[i] = std::make_shared<arrow::Field>(column_names[i], col->type());
     columns[i] = col;
   }
-  return std::make_shared<Context>(arrow::Table::Make(std::make_shared<arrow::Schema>(fields), columns));
+  return std::make_shared<Context>(
+      arrow::Table::Make(std::make_shared<arrow::Schema>(fields), columns));
 }
 
 std::shared_ptr<arrow::Table> Backend::execute(std::shared_ptr<Context> ctx) {
   return ctx->table;
 }
-std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shared_ptr<internal::Expr> expr) {
+std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx,
+                                         std::shared_ptr<internal::Expr> expr) {
   // TODO: make that implementation parallel
   auto schema = ctx->table->schema();
   auto fields_count = schema->num_fields();
@@ -30,6 +33,7 @@ std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shar
   std::vector<std::unique_ptr<kernels::FilterKernel>> kernels(fields_count);
   for (int i = 0; i < fields_count; i++) {
     kernels[i] = kernels::FilterKernel::create_cpu(schema->field(i), expr);
+    kernels[i]->compile();
   }
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(fields_count);
   std::vector<std::shared_ptr<arrow::Buffer>> column_bitmap(fields_count);
@@ -44,7 +48,8 @@ std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx, std::shar
       for (int i = 0; i < chunk_num; i++) {
         offset += original_column->chunk(i)->length();
       }
-      kernels[col_num]->execute(original_column->chunk(chunk_num), filter_bitmap->mutable_data() + offset / 8, offset % 8);
+      kernels[col_num]->execute(original_column->chunk(chunk_num),
+                                filter_bitmap->mutable_data() + offset / 8, offset % 8);
     }
   }
   // TODO: process skipped by filter bitmaps

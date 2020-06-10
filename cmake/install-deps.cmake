@@ -32,6 +32,7 @@ set_target_properties(libjemalloc PROPERTIES  IMPORTED_LOCATION "${DEPS_LIBRARY_
 set_target_properties(libjemalloc_pic PROPERTIES IMPORTED_LOCATION "${DEPS_LIBRARY_DIR}/libjemalloc_pic.a")
 list(APPEND DEPS_LIBS libjemalloc libjemalloc_pic)
 
+
 ExternalProject_Add(arrow-build
         GIT_REPOSITORY    https://github.com/apache/arrow.git
         GIT_TAG           apache-arrow-0.17.1
@@ -43,7 +44,6 @@ ExternalProject_Add(arrow-build
         CMAKE_ARGS
                           -DARROW_COMPUTE=ON
                           -DARROW_CSV=ON
-                          -DARROW_BUILD_TESTS=OFF
         # TODO: for some reason arrow downloads jemalloc itself and use it
         # it leads to conflict with bundled jemalloc and fails build
         # reenable this, after fix
@@ -80,4 +80,20 @@ add_library(googletest STATIC IMPORTED)
 set_target_properties(googletest PROPERTIES IMPORTED_LOCATION ${DEPS_LIBRARY_DIR}/libgtest.a)
 add_library(googletest_main STATIC IMPORTED)
 set_target_properties(googletest_main PROPERTIES IMPORTED_LOCATION ${DEPS_LIBRARY_DIR}/libgtest_main.a)
-endif() #PEFA_BUILD_TESTS
+
+set(ARROW_TESTING_PREFIX ${PEFA_DEPS_SOURCES_PREFIX}/arrow/cpp/src/arrow/testing/)
+set(ARROW_TESTING_SOURCES
+        ${ARROW_TESTING_PREFIX}/generator.cc
+        ${ARROW_TESTING_PREFIX}/gtest_util.cc
+        ${ARROW_TESTING_PREFIX}/random.cc
+        ${ARROW_TESTING_PREFIX}/util.cc
+        ${ARROW_TESTING_PREFIX}/../ipc/json_simple.cc)
+
+set_source_files_properties(${ARROW_TESTING_SOURCES} PROPERTIES GENERATED TRUE)
+
+add_library(arrow_testing ${ARROW_TESTING_SOURCES})
+target_link_libraries(arrow_testing arrow googletest googletest_main)
+target_include_directories(arrow_testing PUBLIC ${ARROW_TESTING_PREFIX}/../..)
+add_dependencies(arrow_testing arrow-build googletest-build)
+list(APPEND DEPS_LIST arrow_testing)
+endif()
