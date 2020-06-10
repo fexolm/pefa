@@ -20,6 +20,10 @@ public:
     return ExecutionContext(Backend::project(m_backendCtx, std::move(columns)));
   }
 
+  ExecutionContext filter(std::shared_ptr<internal::Expr> expr) const {
+    return ExecutionContext(Backend::filter(m_backendCtx, std::move(expr)));
+  }
+
   std::shared_ptr<arrow::Table> execute() const {
     return Backend::execute(m_backendCtx);
   }

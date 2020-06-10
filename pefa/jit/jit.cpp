@@ -112,6 +112,7 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
 
   passes.add(llvm::createVerifierPass());
   passes.run(*module);
+  module->print(llvm::errs(), nullptr, true);
   return module;
 }
 std::shared_ptr<JIT> get_JIT() {

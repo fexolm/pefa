@@ -16,18 +16,22 @@ TEST_F(FilterKernelTest, testFilter) {
   }
 
   auto bitmap_buffer = arrow::AllocateEmptyBitmap(values.size()).ValueOrDie();
+  ASSERT_EQ(bitmap_buffer->size(), 2);
+  for(int i=0; i<bitmap_buffer->size(); i++) {
+    bitmap_buffer->mutable_data()[i] = 255;
+  }
 
   auto column = std::make_shared<arrow::Int64Array>(values.size(), std::shared_ptr(std::move(column_buffer)));
-  auto bitmap = std::make_shared<arrow::UInt8Array>(values.size() / 8 + 1, bitmap_buffer);
 
   auto field = std::make_shared<arrow::Field>("A", arrow::int64());
   auto expr = ((pefa::col("A")->EQ(pefa::lit(4)))->AND(pefa::col("A")->GE(pefa::lit(3))))->OR(pefa::col("B")->EQ(pefa::lit(1)));
 
   auto filter = kernels::FilterKernel::create_cpu(field, expr);
 
-  filter->execute(column, bitmap);
+  filter->execute(column, bitmap_buffer->mutable_data(), 0);
 
   ASSERT_EQ(bitmap_buffer->data()[0], 0b01011010);
-  ASSERT_EQ(bitmap_buffer->data()[1], 0b10010000);
 
+  // we don't filter last byte with that kernel
+  ASSERT_EQ(bitmap_buffer->data()[1], 0b11111111);
 }
