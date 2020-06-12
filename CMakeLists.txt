@@ -21,6 +21,7 @@ add_library(pefa
         pefa/backends/naive/backend.cpp
         pefa/kernels/filter.cpp
         pefa/api/expressions.cpp
+        pefa/api/exceptions.cpp
         pefa/jit/jit.cpp
         )
 add_dependencies(pefa ${DEPS_LIST})

@@ -1,11 +1,14 @@
 #pragma once
 #include <arrow/type.h>
-#define PEFA_CASE_BRK(condition, body)                                                       \
+#include <cassert>
+
+#define PEFA_CASE_BRK(condition, body)                                                             \
   condition {                                                                                      \
-    body; break;                                                                                    \
+    body;                                                                                          \
+    break;                                                                                         \
   }
 
-#define PEFA_CASE_RET(condition, body)                                                       \
+#define PEFA_CASE_RET(condition, body)                                                             \
   condition {                                                                                      \
     return body;                                                                                   \
   }
@@ -21,6 +24,7 @@
 #define PEFA_FLOAT16_CASE case arrow::Type::HALF_FLOAT:
 #define PEFA_FLOAT32_CASE case arrow::Type::FLOAT:
 #define PEFA_FLOAT64_CASE case arrow::Type::DOUBLE:
+#define PEFA_DECIMAL_CASE case arrow::Type::DECIMAL:;
 
 #define PEFA_SIGNED_INTEGRAL_CASE                                                                  \
   PEFA_INT8_CASE                                                                                   \

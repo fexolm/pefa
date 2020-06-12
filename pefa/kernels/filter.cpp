@@ -1,5 +1,6 @@
 #include "filter.h"
 
+#include "pefa/api/exceptions.h"
 #include "pefa/jit/jit.h"
 #include "pefa/utils/llvm_helpers.h"
 #include "pefa/utils/utils.h"
@@ -8,6 +9,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/Host.h>
+
 namespace pefa::internal::kernels {
 
 class IrEmitVisitor : public ExprVisitor, private utils::LLVMTypesHelper {
@@ -15,7 +17,7 @@ private:
   llvm::Value *m_result;
   llvm::IRBuilder<> *m_builder;
   llvm::LLVMContext *m_context;
-  std::shared_ptr<arrow::Field> m_field;
+  const std::shared_ptr<const arrow::Field> m_field;
   llvm::Value *m_input;
 
   // we need to keep last op to generate proper constant (true/false)
@@ -24,7 +26,7 @@ private:
 
 public:
   IrEmitVisitor(llvm::LLVMContext *context, llvm::IRBuilder<> *builder,
-                std::shared_ptr<arrow::Field> field, llvm::Value *input)
+                const std::shared_ptr<const arrow::Field> field, llvm::Value *input)
       : utils::LLVMTypesHelper(*context)
       , m_result(nullptr)
       , m_builder(builder)
@@ -78,8 +80,8 @@ public:
 
 class FitlerKernelImpl : public FilterKernel, private utils::LLVMTypesHelper {
 private:
-  std::shared_ptr<arrow::Field> m_field;
-  std::shared_ptr<Expr> m_expr;
+  const std::shared_ptr<const arrow::Field> m_field;
+  const std::shared_ptr<const Expr> m_expr;
   llvm::LLVMContext m_context;
   llvm::orc::VModuleKey m_moduleKey;
   bool m_is_compiled = false;
@@ -87,22 +89,22 @@ private:
   void (*m_func)(const uint8_t *, uint8_t *, int64_t);
 
 public:
-  FitlerKernelImpl(std::shared_ptr<arrow::Field> field, std::shared_ptr<Expr> expr)
+  FitlerKernelImpl(const std::shared_ptr<const arrow::Field> field, const std::shared_ptr<const Expr> expr)
       : m_field(field)
       , m_expr(expr)
       , m_context(llvm::LLVMContext())
       , m_jit(jit::get_JIT())
       , utils::LLVMTypesHelper(m_context) {}
 
-  void execute(std::shared_ptr<arrow::Array> column, uint8_t *bitmap, size_t offset) override {
+  void execute(const std::shared_ptr<arrow::Array> column, uint8_t *bitmap, size_t offset) override {
     if (!m_is_compiled) {
-      throw "Kernel must be compiled before execution";
+      throw KernelNotCompiledException();
     }
     if (auto type = dynamic_cast<arrow::FixedWidthType *>(column->type().get())) {
       m_func(column->data()->buffers[1]->data() + (type->bit_width() * offset / 8),
              bitmap + (offset != 0), column->length() - offset);
     } else {
-      throw "Variable length type filtering does not implemented yet";
+      throw NotImplementedException("Variable length type filtering does not implemented yet");
     }
   }
 
@@ -234,8 +236,8 @@ private:
   }
 };
 
-std::unique_ptr<FilterKernel> FilterKernel::create_cpu(std::shared_ptr<arrow::Field> field,
-                                                       std::shared_ptr<Expr> expr) {
+std::unique_ptr<FilterKernel> FilterKernel::create_cpu(const std::shared_ptr<arrow::Field> field,
+                                                       const std::shared_ptr<Expr> expr) {
   return std::make_unique<FitlerKernelImpl>(field, expr);
 }
 } // namespace pefa::internal::kernels

@@ -6,7 +6,7 @@
 
 namespace pefa::backends::naive {
 using namespace internal;
-std::shared_ptr<Context> Backend::project(std::shared_ptr<Context> ctx,
+std::shared_ptr<Context> Backend::project(const std::shared_ptr<Context> ctx,
                                           std::vector<std::string> column_names) {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(column_names.size());
   std::vector<std::shared_ptr<arrow::Field>> fields(column_names.size());
@@ -19,11 +19,11 @@ std::shared_ptr<Context> Backend::project(std::shared_ptr<Context> ctx,
       arrow::Table::Make(std::make_shared<arrow::Schema>(fields), columns));
 }
 
-std::shared_ptr<arrow::Table> Backend::execute(std::shared_ptr<Context> ctx) {
+std::shared_ptr<arrow::Table> Backend::execute(const std::shared_ptr<Context> ctx) {
   return ctx->table;
 }
-std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx,
-                                         std::shared_ptr<internal::Expr> expr) {
+std::shared_ptr<Context> Backend::filter(const std::shared_ptr<Context> ctx,
+                                         const std::shared_ptr<internal::Expr> expr) {
   // TODO: make that implementation parallel
   auto schema = ctx->table->schema();
   auto fields_count = schema->num_fields();

@@ -9,9 +9,9 @@
 #include <llvm/IR/Mangler.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/Host.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
