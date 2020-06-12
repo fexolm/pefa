@@ -5,6 +5,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Support/Host.h>
 
 namespace pefa::internal::kernels {
 
@@ -35,6 +36,8 @@ public:
     switch (type.id()) {
     case arrow::Type::INT64:
       return i64();
+    case arrow::Type::INT8:
+      return i8();
     default:
       throw "not implemented exception"; // TODO: implement not implemented exception
     }
@@ -93,6 +96,10 @@ public:
           m_result = m_builder->CreateICmpSGT(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
           break;
         }
+        case arrow::Type::INT8: {
+          m_result = m_builder->CreateICmpSGT(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
+          break;
+        }
         default:
           throw "not implemented exception"; // TODO: implement not implemented exception
         }
@@ -100,8 +107,11 @@ public:
       case CompareExpr::Op::LT:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
-          auto i64_typ = llvm::Type::getInt64Ty(*m_context);
           m_result = m_builder->CreateICmpSLT(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
+          break;
+        }
+        case arrow::Type::INT8: {
+          m_result = m_builder->CreateICmpSLT(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
           break;
         }
         default:
@@ -111,8 +121,11 @@ public:
       case CompareExpr::Op::GE:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
-          auto i64_typ = llvm::Type::getInt64Ty(*m_context);
           m_result = m_builder->CreateICmpSGE(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
+          break;
+        }
+        case arrow::Type::INT8: {
+          m_result = m_builder->CreateICmpSGE(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
           break;
         }
         default:
@@ -122,8 +135,11 @@ public:
       case CompareExpr::Op::LE:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
-          auto i64_typ = llvm::Type::getInt64Ty(*m_context);
           m_result = m_builder->CreateICmpSLE(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
+          break;
+        }
+        case arrow::Type::INT8: {
+          m_result = m_builder->CreateICmpSLE(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
           break;
         }
         default:
@@ -133,8 +149,11 @@ public:
       case CompareExpr::Op::EQ:
         switch (m_field->type()->id()) {
         case arrow::Type::INT64: {
-          auto i64_typ = llvm::Type::getInt64Ty(*m_context);
           m_result = m_builder->CreateICmpEQ(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
+          break;
+        }
+        case arrow::Type::INT8: {
+          m_result = m_builder->CreateICmpEQ(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
           break;
         }
         default:
@@ -198,6 +217,7 @@ public:
 
   void compile() override {
     auto module = std::make_unique<llvm::Module>(m_field->name() + "_filter_mod", m_context);
+    module->setTargetTriple(llvm::sys::getProcessTriple());
     gen_predicate_func(*module);
     gen_filter_func(*module);
     auto &machine = m_jit->getTargetMachine();
@@ -240,8 +260,8 @@ private:
   // }
 
   void gen_filter_func(llvm::Module &module) {
-    std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context, 1),
-                                         llvm::Type::getInt8PtrTy(m_context, 1),
+    std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context),
+                                         llvm::Type::getInt8PtrTy(m_context),
                                          llvm::Type::getInt64Ty(m_context)};
 
     llvm::FunctionType *prototype =
@@ -272,7 +292,7 @@ private:
     auto *tmp_bitmap = builder.CreateAlloca(i8_t, nullptr, "tmp_bitmap");
     builder.CreateStore(i64val(0), i);
     builder.CreateStore(i8val(0), j);
-    auto *source = builder.CreateAddrSpaceCast(arg_source, to_llvm_ptr_type(*m_field->type()));
+    auto *source = builder.CreatePointerCast(arg_source, to_llvm_ptr_type(*m_field->type()));
     builder.CreateBr(cond_1);
 
     builder.SetInsertPoint(cond_1);

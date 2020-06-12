@@ -11,6 +11,7 @@
 #include <llvm/Support/DynamicLibrary.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
@@ -25,6 +26,7 @@ std::unique_ptr<EngineBuilder> createEngineBuilder() {
   llvm::TargetOptions target_options;
   target_options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
   engine_builder->setTargetOptions(target_options);
+  engine_builder->setMCPU(llvm::sys::getHostCPUName());
   return engine_builder;
 }
 
@@ -116,6 +118,7 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
 
   passes.add(llvm::createVerifierPass());
   passes.run(*module);
+  module->print(llvm::errs(), nullptr);
   return module;
 }
 std::shared_ptr<JIT> get_JIT() {
