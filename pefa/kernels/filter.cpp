@@ -1,54 +1,16 @@
 #include "filter.h"
 
 #include "pefa/jit/jit.h"
+#include "pefa/utils/llvm_helpers.h"
+#include "pefa/utils/utils.h"
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/Host.h>
-
 namespace pefa::internal::kernels {
 
-class LLVMHelper {
-private:
-  LLVMContext &m_context;
-
-public:
-  LLVMHelper(LLVMContext &context)
-      : m_context(context) {}
-  llvm::Type *i64() {
-    return llvm::Type::getInt64Ty(m_context);
-  }
-
-  llvm::Type *i8() {
-    return llvm::Type::getInt8Ty(m_context);
-  }
-
-  llvm::Value *i64val(long val) {
-    return llvm::ConstantInt::get(i64(), val, true);
-  }
-
-  llvm::Value *i8val(int8_t val) {
-    return llvm::ConstantInt::get(i8(), val, true);
-  }
-
-  llvm::Type *to_llvm_type(const arrow::DataType &type) {
-    switch (type.id()) {
-    case arrow::Type::INT64:
-      return i64();
-    case arrow::Type::INT8:
-      return i8();
-    default:
-      throw "not implemented exception"; // TODO: implement not implemented exception
-    }
-  }
-
-  llvm::Type *to_llvm_ptr_type(const arrow::DataType &type) {
-    return to_llvm_type(type)->getPointerTo();
-  }
-}; // namespace pefa::internal::kernels
-
-class IrEmitVisitor : public ExprVisitor, private LLVMHelper {
+class IrEmitVisitor : public ExprVisitor, private utils::LLVMTypesHelper {
 private:
   llvm::Value *m_result;
   llvm::IRBuilder<> *m_builder;
@@ -63,7 +25,7 @@ private:
 public:
   IrEmitVisitor(llvm::LLVMContext *context, llvm::IRBuilder<> *builder,
                 std::shared_ptr<arrow::Field> field, llvm::Value *input)
-      : LLVMHelper(*context)
+      : utils::LLVMTypesHelper(*context)
       , m_result(nullptr)
       , m_builder(builder)
       , m_context(context)
@@ -78,98 +40,33 @@ public:
     expr.rhs->visit(*this);
     auto rhs = m_result;
     switch (expr.op) {
-    case PredicateExpr::Op::OR:
-      m_result = m_builder->CreateOr(lhs, rhs);
-      break;
-    case PredicateExpr::Op::AND:
-      m_result = m_builder->CreateAnd(lhs, rhs);
-      break;
+      PEFA_CASE_BRK(case PredicateExpr::Op::OR:, m_result = m_builder->CreateOr(lhs, rhs))
+      PEFA_CASE_BRK(case PredicateExpr::Op::AND:, m_result = m_builder->CreateAnd(lhs, rhs))
     }
   }
 
   void visit(const CompareExpr &expr) override {
     if (expr.lhs->name == m_field->name()) {
+      auto &typ = *(m_field->type());
+      auto constant = const_from_variant(typ, expr.rhs->value);
       switch (expr.op) {
-      case CompareExpr::Op::GT:
-        switch (m_field->type()->id()) {
-        case arrow::Type::INT64: {
-          m_result = m_builder->CreateICmpSGT(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        case arrow::Type::INT8: {
-          m_result = m_builder->CreateICmpSGT(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        default:
-          throw "not implemented exception"; // TODO: implement not implemented exception
-        }
-        break;
-      case CompareExpr::Op::LT:
-        switch (m_field->type()->id()) {
-        case arrow::Type::INT64: {
-          m_result = m_builder->CreateICmpSLT(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        case arrow::Type::INT8: {
-          m_result = m_builder->CreateICmpSLT(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        default:
-          throw "not implemented exception"; // TODO: implement not implemented exception
-        }
-        break;
-      case CompareExpr::Op::GE:
-        switch (m_field->type()->id()) {
-        case arrow::Type::INT64: {
-          m_result = m_builder->CreateICmpSGE(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        case arrow::Type::INT8: {
-          m_result = m_builder->CreateICmpSGE(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        default:
-          throw "not implemented exception"; // TODO: implement not implemented exception
-        }
-        break;
-      case CompareExpr::Op::LE:
-        switch (m_field->type()->id()) {
-        case arrow::Type::INT64: {
-          m_result = m_builder->CreateICmpSLE(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        case arrow::Type::INT8: {
-          m_result = m_builder->CreateICmpSLE(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        default:
-          throw "not implemented exception"; // TODO: implement not implemented exception
-        }
-        break;
-      case CompareExpr::Op::EQ:
-        switch (m_field->type()->id()) {
-        case arrow::Type::INT64: {
-          m_result = m_builder->CreateICmpEQ(m_input, i64val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        case arrow::Type::INT8: {
-          m_result = m_builder->CreateICmpEQ(m_input, i8val(std::get<int64_t>(expr.rhs->value)));
-          break;
-        }
-        default:
-          throw "not implemented exception"; // TODO: implement not implemented exception
-        }
-        break;
+        PEFA_CASE_BRK(case CompareExpr::Op::GT:,
+                      m_result = create_cmp_gt(typ, *m_builder, m_input, constant))
+        PEFA_CASE_BRK(case CompareExpr::Op::LT:,
+                      m_result = create_cmp_lt(typ, *m_builder, m_input, constant))
+        PEFA_CASE_BRK(case CompareExpr::Op::GE:,
+                      m_result = create_cmp_ge(typ, *m_builder, m_input, constant))
+        PEFA_CASE_BRK(case CompareExpr::Op::LE:,
+                      m_result = create_cmp_le(typ, *m_builder, m_input, constant))
+        PEFA_CASE_BRK(case CompareExpr::Op::EQ:,
+                      m_result = create_cmp_eq(typ, *m_builder, m_input, constant))
+        PEFA_CASE_BRK(case CompareExpr::Op::NEQ:,
+                      m_result = create_cmp_ne(typ, *m_builder, m_input, constant))
       }
     } else {
-      auto bool_typ = llvm::Type::getInt1Ty(*m_context);
       switch (m_last_op) {
-      case PredicateExpr::Op::OR:
-        m_result = llvm::ConstantInt::get(bool_typ, 0, true);
-        break;
-      case PredicateExpr::Op::AND:
-        m_result = llvm::ConstantInt::get(bool_typ, 1, true);
-        break;
+        PEFA_CASE_BRK(case PredicateExpr::Op::OR:, m_result = boolval(false))
+        PEFA_CASE_BRK(case PredicateExpr::Op::AND:, m_result = boolval(true))
       }
     }
   }
@@ -179,7 +76,7 @@ public:
   }
 }; // namespace pefa::backends::naive::kernels
 
-class FitlerKernelImpl : public FilterKernel, private LLVMHelper {
+class FitlerKernelImpl : public FilterKernel, private utils::LLVMTypesHelper {
 private:
   std::shared_ptr<arrow::Field> m_field;
   std::shared_ptr<Expr> m_expr;
@@ -195,7 +92,7 @@ public:
       , m_expr(expr)
       , m_context(llvm::LLVMContext())
       , m_jit(jit::get_JIT())
-      , LLVMHelper(m_context) {}
+      , utils::LLVMTypesHelper(m_context) {}
 
   void execute(std::shared_ptr<arrow::Array> column, uint8_t *bitmap, size_t offset) override {
     if (!m_is_compiled) {
@@ -232,7 +129,7 @@ public:
 
 private:
   void gen_predicate_func(llvm::Module &module) {
-    std::vector<llvm::Type *> param_type{to_llvm_type(*m_field->type())};
+    std::vector<llvm::Type *> param_type{from_arrow(*m_field->type())};
     llvm::FunctionType *prototype =
         llvm::FunctionType::get(llvm::Type::getInt1Ty(m_context), param_type, false);
     llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::InternalLinkage,
@@ -248,18 +145,17 @@ private:
     builder.CreateRet(visitor.result());
   }
 
-  // void filter(int *a, char *b, int len) {
-  //     for(int i=0; i<len / 8; i++) {
-  //         int *src = a + i * 8;
-  //         char a = 0;
-  //         for(int j=0; j<8; j++) {
-  //            a = a | predicate(src[j]) << (7 - j);
-  //         }
-  //         b[i] |= a;
-  //     }
-  // }
-
   void gen_filter_func(llvm::Module &module) {
+    // void filter(int *in, char *out, int len) {
+    //     for(int i=0; i<len / 8; i++) {
+    //         int *src = in + i * 8;
+    //         char bitmap = 0;
+    //         for(int j=0; j<8; j++) {
+    //            bitmap |= predicate(src[j]) << (7 - j);
+    //         }
+    //         out[i] &= bitmap;
+    //     }
+    // }
     std::vector<llvm::Type *> param_type{llvm::Type::getInt8PtrTy(m_context),
                                          llvm::Type::getInt8PtrTy(m_context),
                                          llvm::Type::getInt64Ty(m_context)};
@@ -285,14 +181,12 @@ private:
 
     llvm::IRBuilder builder(m_context);
     builder.SetInsertPoint(body);
-    auto i64_t = llvm::Type::getInt64Ty(m_context);
-    auto i8_t = llvm::Type::getInt8Ty(m_context);
-    auto *i = builder.CreateAlloca(i64_t, nullptr, "i");
-    auto *j = builder.CreateAlloca(i8_t, nullptr, "j");
-    auto *tmp_bitmap = builder.CreateAlloca(i8_t, nullptr, "tmp_bitmap");
+    auto *i = builder.CreateAlloca(i64_typ(), nullptr, "i");
+    auto *j = builder.CreateAlloca(i8_typ(), nullptr, "j");
+    auto *tmp_bitmap = builder.CreateAlloca(i8_typ(), nullptr, "tmp_bitmap");
     builder.CreateStore(i64val(0), i);
     builder.CreateStore(i8val(0), j);
-    auto *source = builder.CreatePointerCast(arg_source, to_llvm_ptr_type(*m_field->type()));
+    auto *source = builder.CreatePointerCast(arg_source, ptr_from_arrow(*m_field->type()));
     builder.CreateBr(cond_1);
 
     builder.SetInsertPoint(cond_1);
@@ -315,7 +209,7 @@ private:
         builder.CreateCall(
             module.getFunction(m_field->name() + "_predicate"),
             {builder.CreateLoad(builder.CreateInBoundsGEP(src, builder.CreateLoad(j)))}),
-        i8_t, false);
+        i8_typ(), false);
 
     auto bit_with_shift =
         builder.CreateShl(bit, builder.CreateSub(i8val(7), builder.CreateLoad(j)));

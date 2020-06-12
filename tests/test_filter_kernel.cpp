@@ -38,15 +38,25 @@ protected:
 };
 
 TEST_F(FilterKernelOffsetsTest, testWithoutOffset) {
+  // skip last bitmap in buffer, as it should be processed separately
   m_filter->execute(m_array, m_bitmap->mutable_data(), 0);
-  ASSERT_EQ(m_bitmap->data()[0], 0b01011010);
-  // we don't filter last byte with that kernel
-  ASSERT_EQ(m_bitmap->data()[1], 0b11111111);
+  arrow::AssertBufferEqual(*m_bitmap, std::vector<uint8_t>({0b01011010, 0b11111111}));
 }
 
-TEST_F(FilterKernelOffsetsTest, testWithOffset) {
+TEST_F(FilterKernelOffsetsTest, testWithOffset2) {
+  // skip first bitmap in buffer, as it is assumed that it is shared between 2 chunks
   m_filter->execute(m_array, m_bitmap->mutable_data(), 2);
-  // we expect first value to be shared between 2 chunks, so
-  ASSERT_EQ(m_bitmap->data()[0], 0b11111111);
-  ASSERT_EQ(m_bitmap->data()[1], 0b01101010);
+  arrow::AssertBufferEqual(*m_bitmap, std::vector<uint8_t>({0b11111111, 0b01101010}));
+}
+
+TEST_F(FilterKernelOffsetsTest, testWithOffset4) {
+  // skip first bitmap in buffer, as it is assumed that it is shared between 2 chunks
+  m_filter->execute(m_array, m_bitmap->mutable_data(), 4);
+  arrow::AssertBufferEqual(*m_bitmap, std::vector<uint8_t>({0b11111111, 0b10101001}));
+}
+
+TEST_F(FilterKernelOffsetsTest, testWithOffset10) {
+  // skip all bitmaps, as it is assumed, that 2 bitmaps should be skipped
+  m_filter->execute(m_array, m_bitmap->mutable_data(), 10);
+  arrow::AssertBufferEqual(*m_bitmap, std::vector<uint8_t>({0b11111111, 0b11111111}));
 }
