@@ -11,14 +11,16 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
-    container: continuumio/miniconda:latest
+    container: continuumio/miniconda3:latest
     
     steps:
     - uses: actions/checkout@v2
       
     - name: Set up conda environment
       run: |
-        conda env update --name base -f environment.yml
+        conda config --set safety_checks disabled
+        conda config --set channel_priority strict
+        conda env update --name base --force-reinstall -f environment.yml
 
     - name: Build project
       run: |
