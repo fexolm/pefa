@@ -19,8 +19,7 @@ jobs:
     - name: Set up conda environment
       run: |
         conda install conda-build==3.17.7 -c conda-forge
-        conda env create -f environment.yml
-        conda activate pefa-dev
+        conda env update -f environment.yml
 
     - name: Build project
       run: |
