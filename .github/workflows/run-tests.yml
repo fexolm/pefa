@@ -18,7 +18,6 @@ jobs:
       
     - name: Set up conda environment
       run: |
-        conda install conda-build==3.17.7 -c conda-forge
         conda env update -f environment.yml
 
     - name: Build project
