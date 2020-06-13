@@ -9,4 +9,3 @@ AlignConsecutiveMacros: true
 AlignOperands: true
 BreakConstructorInitializers: BeforeComma
 AlwaysBreakTemplateDeclarations: Yes
-Standard: c++20

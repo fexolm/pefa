@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include <variant>
+#include <string>
 
 namespace pefa::internal {
 

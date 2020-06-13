@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pefa)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 include(cmake/options.cmake)
 include(cmake/install-deps.cmake)

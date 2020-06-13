@@ -2,11 +2,11 @@
 #include "pefa/api/exceptions.h"
 #include "utils.h"
 
+#include <iostream>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
-
 namespace pefa::internal::utils {
 class LLVMTypesHelper {
 private:
@@ -29,7 +29,7 @@ public:
   }
 
   llvm::Type *i32_typ() const noexcept {
-    return llvm::Type::getInt16Ty(m_context);
+    return llvm::Type::getInt32Ty(m_context);
   }
 
   llvm::Type *i64_typ() const noexcept {
@@ -53,11 +53,11 @@ public:
   }
 
   llvm::Value *i16val(long val) const noexcept {
-    return llvm::ConstantInt::get(i64_typ(), val, false);
+    return llvm::ConstantInt::get(i16_typ(), val, false);
   }
 
   llvm::Value *i32val(long val) const noexcept {
-    return llvm::ConstantInt::get(i64_typ(), val, false);
+    return llvm::ConstantInt::get(i32_typ(), val, false);
   }
 
   llvm::Value *i64val(long val) const noexcept {
@@ -69,11 +69,11 @@ public:
   }
 
   llvm::Value *u16val(long val) const noexcept {
-    return llvm::ConstantInt::get(i64_typ(), val, true);
+    return llvm::ConstantInt::get(i16_typ(), val, true);
   }
 
   llvm::Value *u32val(long val) const noexcept {
-    return llvm::ConstantInt::get(i64_typ(), val, true);
+    return llvm::ConstantInt::get(i32_typ(), val, true);
   }
 
   llvm::Value *u64val(long val) const noexcept {
@@ -136,8 +136,9 @@ public:
       PEFA_CASE_RET(PEFA_UINT16_CASE, u16val(val))
       PEFA_CASE_RET(PEFA_UINT32_CASE, u32val(val))
       PEFA_CASE_RET(PEFA_UINT64_CASE, u64val(val))
+    default:
+      throw UnreachableException();
     }
-    throw UnreachableException();
   }
 
   llvm::Value *arrow_typed_const(const arrow::DataType &type, double val) const {
@@ -147,8 +148,9 @@ public:
       PEFA_CASE_RET(PEFA_FLOAT64_CASE, f64val(val))
       PEFA_CASE_BRK(PEFA_DECIMAL_CASE,
                     throw NotImplementedException("Decimal support is not implemented yet"))
+    default:
+      throw UnreachableException();
     }
-    throw UnreachableException();
   }
 
 #define __PEFA_CREATE_CMP_FUNC(name, icmp, ucmp, fcmp)                                             \
@@ -158,10 +160,11 @@ public:
       PEFA_CASE_RET(PEFA_SIGNED_INTEGRAL_CASE, builder.icmp(lhs, rhs))                             \
       PEFA_CASE_RET(PEFA_UNSIGNED_INTEGRAL_CASE, builder.ucmp(lhs, rhs))                           \
       PEFA_CASE_RET(PEFA_FLOATING_CASE, builder.fcmp(lhs, rhs))                                    \
+    default:                                                                                       \
+      throw NotImplementedException(std::string("Comparing elements of type") + type.ToString() +  \
+                                    " is not supported yet");                                      \
     }                                                                                              \
-    throw NotImplementedException(std::string("Comparing elements of type") + type.ToString() +    \
-                                  " is not supported yet");                                        \
-  }
+  } // namespace pefa::internal::utils
 
   __PEFA_CREATE_CMP_FUNC(create_cmp_gt, CreateICmpSGT, CreateICmpUGT, CreateFCmpOGT)
   __PEFA_CREATE_CMP_FUNC(create_cmp_lt, CreateICmpSLT, CreateICmpULT, CreateFCmpOLT)
@@ -175,9 +178,12 @@ public:
     switch (type.id()) {
       PEFA_CASE_RET(PEFA_INTEGRAL_CASE, arrow_typed_const(type, std::get<int64_t>(variant)))
       PEFA_CASE_RET(PEFA_FLOATING_CASE PEFA_DECIMAL_CASE,
-                    arrow_typed_const(type, std::get<double>(variant)))
+                    arrow_typed_const(type, variant.index() == 1
+                                                ? std::get<double>(variant)
+                                                : (double)std::get<int64_t>(variant)))
+    default:
+      throw UnreachableException();
     }
-    throw UnreachableException();
   }
-};
+}; // namespace pefa::internal::utils
 } // namespace pefa::internal::utils
