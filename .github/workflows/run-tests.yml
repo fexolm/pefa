@@ -17,7 +17,8 @@ jobs:
 
     - name: Install packages
       run: |
-        sudo apt-get install llvm-dev
+        sudo apt-get upgrade
+        sudo apt-get install llvm-10-dev
     
     - name: Build project
       run: |
