@@ -18,7 +18,7 @@ jobs:
       
     - name: Set up conda environment
       run: |
-        conda env update -f environment.yml
+        conda env update --name base -f environment.yml
 
     - name: Build project
       run: |
