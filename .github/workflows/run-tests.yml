@@ -20,14 +20,14 @@ jobs:
       run: |
         conda config --set safety_checks disabled
         conda config --set channel_priority strict
-        conda env update --name base -f environment.yml
+        conda env create -f environment.yml
 
     - name: Build project
       run: |
         mkdir build
         cd build
-        CXX=clang++ cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
-        make -j4
+        conda run -n pefa-dev cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
+        conda run -n pefa-dev make -j4
         
     - name: Run tests
-      run: make test
+      run: conda run -n pefa-dev make test
