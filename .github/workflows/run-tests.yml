@@ -19,7 +19,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DENABLE_TESTS=ON -D ENABLE_ASAN=ON ..
+        cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
         make -j4
         
     - name: Run tests
