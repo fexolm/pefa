@@ -15,7 +15,7 @@ jobs:
     
     steps:
     - name: Install deps
-      run: apk add --no-cache llvm10-dev cmake make alpine-sdk
+      run: apk add --no-cache llvm10-dev llvm10-static cmake make alpine-sdk
       
     - uses: actions/checkout@v2
       
