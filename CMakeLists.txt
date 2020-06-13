@@ -29,6 +29,3 @@ add_dependencies(pefa ${DEPS_LIST})
 target_link_libraries(pefa ${DEPS_LIBS} LLVM)
 
 add_subdirectory(tests)
-
-add_executable(main main.cpp)
-target_link_libraries(main LLVM)

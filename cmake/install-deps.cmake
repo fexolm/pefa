@@ -11,28 +11,6 @@ set(DEPS_INCLUDE_DIR ${PEFA_DEPS_INSTALL_PREFIX}/include)
 set(DEPS_LIST "")
 set(DEPS_LIBS "")
 
-ExternalProject_Add(jemalloc-build
-        SOURCE_DIR          "${PEFA_DEPS_SOURCES_PREFIX}/jemalloc"
-        URL                 https://github.com/jemalloc/jemalloc/releases/download/4.1.1/jemalloc-4.1.1.tar.bz2
-        INSTALL_DIR         ${PEFA_DEPS_INSTALL_PREFIX}
-        DOWNLOAD_DIR        "${PEFA_DEPS_SOURCES_PREFIX}/jemalloc"
-        BUILD_COMMAND       $(MAKE)
-        BUILD_IN_SOURCE     1
-        INSTALL_COMMAND     $(MAKE) install
-
-        CONFIGURE_COMMAND
-                            ${PEFA_DEPS_SOURCES_PREFIX}/jemalloc/configure
-                            --prefix=${PEFA_DEPS_INSTALL_PREFIX}
-)
-
-list(APPEND DEPS_LIST jemalloc-build)
-add_library(libjemalloc STATIC IMPORTED GLOBAL)
-add_library(libjemalloc_pic STATIC IMPORTED GLOBAL)
-set_target_properties(libjemalloc PROPERTIES  IMPORTED_LOCATION "${DEPS_LIBRARY_DIR}/libjemalloc.a")
-set_target_properties(libjemalloc_pic PROPERTIES IMPORTED_LOCATION "${DEPS_LIBRARY_DIR}/libjemalloc_pic.a")
-list(APPEND DEPS_LIBS libjemalloc libjemalloc_pic)
-
-
 ExternalProject_Add(arrow-build
         GIT_REPOSITORY    https://github.com/apache/arrow.git
         GIT_TAG           apache-arrow-0.17.1
@@ -42,11 +20,8 @@ ExternalProject_Add(arrow-build
         BINARY_DIR        "${PEFA_DEPS_BINARIES_PREFIX}/arrow"
         INSTALL_DIR       "${PEFA_DEPS_INSTALL_PREFIX}"
         CMAKE_ARGS
-                          -DARROW_COMPUTE=ON
                           -DARROW_CSV=ON
-        # TODO: for some reason arrow downloads jemalloc itself and use it
-        # it leads to conflict with bundled jemalloc and fails build
-        # reenable this, after fix
+        # TODO: for some reason arrow downloads jemalloc itself and use it, but it doesn't install it
                           -DARROW_JEMALLOC=OFF
                           -DCMAKE_INSTALL_PREFIX=${PEFA_DEPS_INSTALL_PREFIX}
                           -DCMAKE_CXX_FLAGS="-I${DEPS_INCLUDE_DIR} -L${DEPS_LIBRARY_DIR}"
@@ -58,7 +33,6 @@ list(APPEND DEPS_LIST arrow-build)
 add_library(arrow STATIC IMPORTED)
 set_target_properties(arrow PROPERTIES IMPORTED_LOCATION ${DEPS_LIBRARY_DIR}/libarrow.a)
 list(APPEND DEPS_LIBS pthread arrow)
-add_dependencies(arrow-build jemalloc-build)
 
 if(ENABLE_TESTS)
 ExternalProject_Add(googletest-build
