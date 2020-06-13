@@ -50,7 +50,7 @@ ExternalProject_Add(arrow-build
                           -DARROW_JEMALLOC=OFF
                           -DCMAKE_INSTALL_PREFIX=${PEFA_DEPS_INSTALL_PREFIX}
                           -DCMAKE_CXX_FLAGS="-I${DEPS_INCLUDE_DIR} -L${DEPS_LIBRARY_DIR}"
-                          -DARROW_Ucd SE_ASAN=${ENABLE_ASAN}
+                          -DARROW_USE_ASAN=${ENABLE_ASAN}
         SOURCE_SUBDIR     "cpp"
 )
 
