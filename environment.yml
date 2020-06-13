@@ -7,3 +7,6 @@ dependencies:
   - gtest==1.8.0
   - benchmark==1.5.1
   - llvmdev==10.0.0
+  - clang
+  - cmake
+  - make
