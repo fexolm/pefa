@@ -1,0 +1,30 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install packages
+      run: |
+        sudo apt install clang++ llvm-10-dev cmake
+    
+    - name: Build project
+      run: |
+        mkdir build
+        cd build
+        cmake -DENABLE_TESTS=ON -D ENABLE_ASAN=ON ..
+        make -j
+        
+    - name: Run tests
+      run: make test
