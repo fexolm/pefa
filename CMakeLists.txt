@@ -4,12 +4,12 @@ project(pefa)
 set(CMAKE_CXX_STANDARD 17)
 
 include(cmake/options.cmake)
-include(cmake/install-deps.cmake)
-
 if (ENABLE_ASAN)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 endif ()
+include(cmake/install-deps.cmake)
 
 include_directories(vendor)
 include_directories(${DEPS_INCLUDE_DIR})
