@@ -16,11 +16,14 @@ jobs:
     steps:
     - uses: actions/checkout@v2
       
+    - name: Set up conda environment
+      run: |
+        conda install conda-build==3.17.7 -c conda-forge
+        conda env create -f environment.yml
+        conda activate pefa-dev
+
     - name: Build project
       run: |
-        conda env create -f environment.yml
-        conda init bash
-        conda activate pefa-dev
         mkdir build
         cd build
         CXX=clang++ cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
