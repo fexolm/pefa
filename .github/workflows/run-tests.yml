@@ -10,9 +10,9 @@ on:
 
 jobs:
   docker:
-    runs-on: alpine:latest
- 
-
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    
     steps:
     - name: Install deps
       run: apk add --no-cache llvm10-dev clang++ cmake make git
