@@ -17,7 +17,7 @@ jobs:
 
     - name: Install packages
       run: |
-        sudo apt-get install clang++ llvm-dev cmake
+        sudo apt-get install llvm-dev
     
     - name: Build project
       run: |
