@@ -11,16 +11,19 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
-    container: continuumio/miniconda3:latest
-    
     steps:
+    - name: Install build-tools
+      run: sudo apt-get install cmake build-essential
+      
     - uses: actions/checkout@v2
       
-    - name: Set up conda environment
-      run: |
-        conda config --set safety_checks disabled
-        conda config --set channel_priority strict
-        conda env create -f environment.yml
+    - uses: goanpeca/setup-miniconda@v1
+      # TODO: cache deps https://github.com/marketplace/actions/setup-miniconda
+      with:
+        activate-environment: pefa-dev
+        environment-file: environment.yml
+        python-version: 3.7
+        auto-activate-base: false
 
     - name: Build project
       run: |
