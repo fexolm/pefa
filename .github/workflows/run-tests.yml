@@ -20,7 +20,7 @@ jobs:
       run: |
         conda config --set safety_checks disabled
         conda config --set channel_priority strict
-        conda env update --name base --force-reinstall -f environment.yml
+        conda env update --name base -f environment.yml
 
     - name: Build project
       run: |
