@@ -15,7 +15,7 @@ jobs:
     
     steps:
     - name: Install deps
-      run: apk add --no-cache llvm10-dev
+      run: apk add --no-cache llvm10-dev cmake make clang
       
     - uses: actions/checkout@v2
       
