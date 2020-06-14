@@ -4,31 +4,52 @@ project(pefa)
 set(CMAKE_CXX_STANDARD 17)
 
 include(cmake/options.cmake)
-include(cmake/install-deps.cmake)
 
 if (ENABLE_ASAN)
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
+    set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 endif ()
 
-include_directories(vendor)
-include_directories(${DEPS_INCLUDE_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+set(PEFA_DEPS_PREFIX ${CMAKE_BINARY_DIR}/deps)
+set(PEFA_DEPS_SOURCES_PREFIX ${PEFA_DEPS_PREFIX}/sources)
+set(PEFA_DEPS_BINARIES_PREFIX ${PEFA_DEPS_PREFIX}/build)
+set(PEFA_DEPS_INSTALL_PREFIX ${PEFA_DEPS_PREFIX}/install)
+
+set(DEPS_LIBRARY_DIR ${PEFA_DEPS_INSTALL_PREFIX}/lib)
+set(DEPS_INCLUDE_DIR ${PEFA_DEPS_INSTALL_PREFIX}/include)
+
+list(APPEND CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX})
 
 find_package(LLVM REQUIRED)
+find_package(Arrow REQUIRED arrow_shared)
 
-add_library(pefa
+set(PEFA_DEPS LLVM arrow_shared)
+
+include_directories(vendor)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${LLVM_INCLUDE_DIR})
+include_directories(${Arrow_INCLUDE_DIR})
+include_directories(${DEPS_INCLUDE_DIR})
+
+add_library(pefa STATIC
         pefa/backends/naive/backend.cpp
         pefa/kernels/filter.cpp
         pefa/api/expressions.cpp
         pefa/api/exceptions.cpp
         pefa/jit/jit.cpp
         )
-add_dependencies(pefa ${DEPS_LIST})
 
-target_link_libraries(pefa ${DEPS_LIBS} LLVM)
+target_link_libraries(pefa ${PEFA_DEPS})
 
-add_subdirectory(tests)
+if(ENABLE_TESTS)
+    include(cmake/install-gtest.cmake)
+    set(PEFA_TEST_DEPS ${GOOGLE_TEST_LIBS} pthread)
+    include_directories(${GTest_INCLUDE_DIR})
+    add_subdirectory(tests)
+endif()
 
-add_executable(main main.cpp)
-target_link_libraries(main LLVM)
+if(ENABLE_BENCHMARKS)
+    find_package(benchmark REQUIRED)
+endif()

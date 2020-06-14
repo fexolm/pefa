@@ -126,7 +126,7 @@ public:
     return from_arrow(type)->getPointerTo();
   }
 
-  llvm::Value *arrow_typed_const(const arrow::DataType &type, int64_t val) const {
+  llvm::Value *arrow_typed_const(const arrow::DataType &type, int val) const {
     switch (type.id()) {
       PEFA_CASE_RET(PEFA_INT8_CASE, i8val(val))
       PEFA_CASE_RET(PEFA_INT16_CASE, i16val(val))
@@ -176,11 +176,10 @@ public:
   template <typename Variant>
   llvm::Value *const_from_variant(const arrow::DataType &type, const Variant &variant) const {
     switch (type.id()) {
-      PEFA_CASE_RET(PEFA_INTEGRAL_CASE, arrow_typed_const(type, std::get<int64_t>(variant)))
+      PEFA_CASE_RET(PEFA_INTEGRAL_CASE, arrow_typed_const(type, std::get<int>(variant)))
       PEFA_CASE_RET(PEFA_FLOATING_CASE PEFA_DECIMAL_CASE,
-                    arrow_typed_const(type, variant.index() == 1
-                                                ? std::get<double>(variant)
-                                                : (double)std::get<int64_t>(variant)))
+                    arrow_typed_const(type, variant.index() == 1 ? std::get<double>(variant)
+                                                                 : (double)std::get<int>(variant)))
     default:
       throw UnreachableException();
     }

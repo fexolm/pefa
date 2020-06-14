@@ -1,0 +1,9 @@
+name: pefa-dev
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - arrow-cpp==0.17.1
+  - benchmark==1.5.1
+  - llvmdev==10.0.0
+  - rapidjson==1.1.0
