@@ -4,7 +4,6 @@ channels:
   - defaults
 dependencies:
   - arrow-cpp==0.17.1
-  - gtest==1.8.0
   - benchmark==1.5.1
   - llvmdev==10.0.0
   - rapidjson==1.1.0

@@ -4,13 +4,21 @@ project(pefa)
 set(CMAKE_CXX_STANDARD 17)
 
 include(cmake/options.cmake)
+
 if (ENABLE_ASAN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
     set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
 endif ()
 
-set(PEFA_DEPS)
+include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
+set(PEFA_DEPS_PREFIX ${CMAKE_BINARY_DIR}/deps)
+set(PEFA_DEPS_SOURCES_PREFIX ${PEFA_DEPS_PREFIX}/sources)
+set(PEFA_DEPS_BINARIES_PREFIX ${PEFA_DEPS_PREFIX}/build)
+set(PEFA_DEPS_INSTALL_PREFIX ${PEFA_DEPS_PREFIX}/install)
+
+set(DEPS_LIBRARY_DIR ${PEFA_DEPS_INSTALL_PREFIX}/lib)
+set(DEPS_INCLUDE_DIR ${PEFA_DEPS_INSTALL_PREFIX}/include)
 
 list(APPEND CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX})
 
@@ -23,6 +31,7 @@ include_directories(vendor)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${LLVM_INCLUDE_DIR})
 include_directories(${Arrow_INCLUDE_DIR})
+include_directories(${DEPS_INCLUDE_DIR})
 
 add_library(pefa STATIC
         pefa/backends/naive/backend.cpp
@@ -35,9 +44,8 @@ add_library(pefa STATIC
 target_link_libraries(pefa ${PEFA_DEPS})
 
 if(ENABLE_TESTS)
-    include(${CMAKE_ROOT}/Modules/FindGTest.cmake)
-    find_package(GTest REQUIRED)
-    set(PEFA_TEST_DEPS ${GTEST_BOTH_LIBRARIES} pthread)
+    include(cmake/install-gtest.cmake)
+    set(PEFA_TEST_DEPS ${GOOGLE_TEST_LIBS} pthread)
     include_directories(${GTest_INCLUDE_DIR})
     add_subdirectory(tests)
 endif()
