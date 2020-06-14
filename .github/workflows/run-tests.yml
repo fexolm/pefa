@@ -21,7 +21,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}
+        key: conda-${{ runner.os }}-${{ hashFiles('environment.yml') }}
       
     - uses: goanpeca/setup-miniconda@v1
       with:
@@ -29,7 +29,8 @@ jobs:
         environment-file: environment.yml
         python-version: 3.7
         auto-activate-base: false
-
+        use-only-tar-bz2: true 
+      
     - name: Build project
       shell: bash -l {0}
       run: |
