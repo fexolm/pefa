@@ -24,7 +24,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${LLVM_INCLUDE_DIR})
 include_directories(${Arrow_INCLUDE_DIR})
 
-add_library(pefa SHARED
+add_library(pefa STATIC
         pefa/backends/naive/backend.cpp
         pefa/kernels/filter.cpp
         pefa/api/expressions.cpp
