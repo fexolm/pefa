@@ -6,7 +6,7 @@ include_directories(${GTest_INCLUDE_FIR})
 
 file(GLOB_RECURSE ARROW_TESTING_SOURCES "${CMAKE_SOURCE_DIR}/vendor/arrow/*.cc")
 
-add_library(arrow_testing SHARED ${ARROW_TESTING_SOURCES})
+add_library(arrow_testing ${ARROW_TESTING_SOURCES})
 target_link_libraries(arrow_testing ${PEFA_DEPS} ${PEFA_TEST_DEPS})
 
 add_executable(test_not_segfaults test_not_segfaults.cpp)

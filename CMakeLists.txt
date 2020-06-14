@@ -12,6 +12,8 @@ endif ()
 
 set(PEFA_DEPS)
 
+list(APPEND CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX})
+
 find_package(LLVM REQUIRED)
 find_package(Arrow REQUIRED arrow_shared)
 
