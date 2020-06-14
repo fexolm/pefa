@@ -33,8 +33,9 @@ add_library(pefa SHARED
 target_link_libraries(pefa ${PEFA_DEPS})
 
 if(ENABLE_TESTS)
+    include(${CMAKE_ROOT}/Modules/FindGTest.cmake)
     find_package(GTest REQUIRED)
-    set(PEFA_TEST_DEPS gtest gtest_main)
+    set(PEFA_TEST_DEPS ${GTEST_BOTH_LIBRARIES} pthread)
     include_directories(${GTest_INCLUDE_DIR})
     add_subdirectory(tests)
 endif()
