@@ -16,9 +16,14 @@ jobs:
       run: sudo apt-get install cmake build-essential
       
     - uses: actions/checkout@v2
+    
+    - name: Cache conda deps
+      uses: actions/cache@v1
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-${{ hashFiles('environment.yml') }}
       
     - uses: goanpeca/setup-miniconda@v1
-      # TODO: cache deps https://github.com/marketplace/actions/setup-miniconda
       with:
         activate-environment: pefa-dev
         environment-file: environment.yml
