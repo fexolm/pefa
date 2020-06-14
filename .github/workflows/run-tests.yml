@@ -26,11 +26,13 @@ jobs:
         auto-activate-base: false
 
     - name: Build project
+      shell: bash -l {0}
       run: |
         mkdir build
         cd build
-        conda run -n pefa-dev cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
-        conda run -n pefa-dev make -j4
+        cmake -DENABLE_TESTS=ON -DENABLE_ASAN=ON ..
+        make -j4
         
     - name: Run tests
-      run: conda run -n pefa-dev make test
+      shell: bash -l {0}
+      run: make test
