@@ -1,2 +1,0 @@
-/usr/bin/ar qc libarrow_testing.a  CMakeFiles/arrow_testing.dir/__/vendor/arrow/ipc/json_simple.cc.o CMakeFiles/arrow_testing.dir/__/vendor/arrow/testing/generator.cc.o CMakeFiles/arrow_testing.dir/__/vendor/arrow/testing/gtest_util.cc.o CMakeFiles/arrow_testing.dir/__/vendor/arrow/testing/random.cc.o CMakeFiles/arrow_testing.dir/__/vendor/arrow/testing/util.cc.o
-/usr/bin/ranlib libarrow_testing.a
