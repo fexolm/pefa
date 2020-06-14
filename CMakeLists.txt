@@ -43,6 +43,7 @@ add_library(pefa STATIC
 
 target_link_libraries(pefa ${PEFA_DEPS})
 
+
 if(ENABLE_TESTS)
     include(cmake/install-gtest.cmake)
     set(PEFA_TEST_DEPS ${GOOGLE_TEST_LIBS} pthread)

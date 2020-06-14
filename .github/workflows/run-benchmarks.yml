@@ -1,0 +1,55 @@
+name: Run benchmark
+
+on:
+  repository_dispatch:
+    types: [run-benchmarks-command]
+
+jobs:
+  run-benchmarks:
+    runs-on: bench
+
+    steps:
+    - name: Dump the client payload context
+      env:
+        PAYLOAD_CONTEXT: ${{ toJson(github.event.client_payload.pull_request) }}
+      run: echo "$PAYLOAD_CONTEXT"
+      
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.client_payload.pull_request.head.ref }}
+    
+    - uses: goanpeca/setup-miniconda@v1
+      env: 
+          CONDA: ${{ secrets.CONDA_PATH }}
+      with:
+        activate-environment: pefa-dev
+        
+        
+    - name: Build benchmarks
+      shell: bash -l {0}
+      run: |
+        mkdir build
+        cd build
+        cmake -DENABLE_BENCHMARKS=ON -DENABLE_ASAN=OFF -DCMAKE_BUILD_TYPE=Release ..
+        make -j4
+        
+    - name: Run benchmarks
+      shell: bash -l {0}
+      id: run-benchmarks
+      run: |
+        BENCHMARK_OUTPUT=$(./build/benchmarks/run-benchmarks)
+        BENCHMARK_OUTPUT="${BENCHMARK_OUTPUT//'%'/'%25'}"
+        BENCHMARK_OUTPUT="${BENCHMARK_OUTPUT//$'\n'/'%0A'}"
+        BENCHMARK_OUTPUT="${BENCHMARK_OUTPUT//$'\r'/'%0D'}"
+        echo "##[set-output name=benchmark-result;]$BENCHMARK_OUTPUT"
+        
+    - name: Write benchmark results
+      uses: peter-evans/create-or-update-comment@v1
+      with:
+        issue-number: ${{ github.event.client_payload.pull_request.number }}
+        body: |
+          Benchmark result: 
+          ```
+          ${{ steps.run-benchmarks.outputs.benchmark-result }}
+          ```
+        

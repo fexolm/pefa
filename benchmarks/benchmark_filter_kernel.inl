@@ -1,7 +1,3 @@
-#pragma clang diagnostic push
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "hicpp-signed-bitwise"
-#pragma ide diagnostic ignored "cert-err58-cpp"
 #include <arrow/api.h>
 #include <arrow/testing/random.h>
 #include <benchmark/benchmark.h>
@@ -37,7 +33,5 @@ BENCHMARK_DEFINE_F(FilterKernelBenchmarkFixture, BenchmarkFilter)
   }
 }
 BENCHMARK_REGISTER_F(FilterKernelBenchmarkFixture, BenchmarkFilter)
-    ->RangeMultiplier(2)
+->RangeMultiplier(2)
     ->Range(1 << 8, 1 << 21);
-
-BENCHMARK_MAIN();
