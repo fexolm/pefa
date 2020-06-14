@@ -1,0 +1,2 @@
+add_executable(benchmark_filter_kernel benchmark_filter_kernel.cpp)
+target_link_libraries(benchmark_filter_kernel benchmark::benchmark pefa ${PEFA_DEPS} arrow_testing)
