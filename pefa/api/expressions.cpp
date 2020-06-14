@@ -86,14 +86,14 @@ std::shared_ptr<CompareExpr> ColumnRef::GT(const std::shared_ptr<const LiteralEx
   return CompareExpr::create(std::static_pointer_cast<const ColumnRef>(shared_from_this()), rhs,
                              CompareExpr::Op::GT);
 }
-LiteralExpr::LiteralExpr(std::variant<int64_t, double, std::string, bool> val)
+LiteralExpr::LiteralExpr(std::variant<int, double, std::string, bool> val)
     : value(val) {}
 
 void LiteralExpr::visit(ExprVisitor &visitor) const {
   visitor.visit(*this);
 }
 std::shared_ptr<LiteralExpr>
-LiteralExpr::create(std::variant<int64_t, double, std::string, bool> val) {
+LiteralExpr::create(std::variant<int, double, std::string, bool> val) {
   return std::make_shared<LiteralExpr>(val);
 }
 

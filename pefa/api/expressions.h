@@ -80,10 +80,10 @@ struct ColumnRef : Expr {
 };
 
 struct LiteralExpr : Expr {
-  const std::variant<int64_t, double, std::string, bool> value;
+  const std::variant<int, double, std::string, bool> value;
 
-  explicit LiteralExpr(std::variant<int64_t, double, std::string, bool> val);
-  static std::shared_ptr<LiteralExpr> create(std::variant<int64_t, double, std::string, bool> val);
+  explicit LiteralExpr(std::variant<int, double, std::string, bool> val);
+  static std::shared_ptr<LiteralExpr> create(std::variant<int, double, std::string, bool> val);
   void visit(ExprVisitor &visitor) const override;
 };
 
@@ -102,7 +102,7 @@ inline std::shared_ptr<internal::ColumnRef> col(std::string name) {
 }
 
 inline std::shared_ptr<internal::LiteralExpr>
-lit(std::variant<int64_t, double, std::string, bool> val) {
+lit(std::variant<int, double, std::string, bool> val) {
   return internal::LiteralExpr::create(val);
 }
 } // namespace pefa
