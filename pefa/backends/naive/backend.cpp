@@ -2,6 +2,7 @@
 
 #include "pefa/kernels/filter.h"
 
+#include <glob.h>
 #include <memory>
 
 namespace pefa::backends::naive {
@@ -40,23 +41,41 @@ std::shared_ptr<Context> Backend::filter(const std::shared_ptr<Context> ctx,
   std::vector<std::shared_ptr<arrow::Buffer>> column_bitmap(fields_count);
 
   for (int col_num = 0; col_num < fields_count; col_num++) {
-    auto original_column = ctx->table->column(col_num);
-    std::vector<std::shared_ptr<arrow::Array>> chunks(original_column->num_chunks());
-    auto filter_bitmap = arrow::AllocateEmptyBitmap(original_column->length()).ValueOrDie();
+    auto column = ctx->table->column(col_num);
+    auto filter_bitmap = arrow::AllocateEmptyBitmap(column->length()).ValueOrDie();
     column_bitmap[col_num] = filter_bitmap;
-    for (int chunk_num = 0; chunk_num < original_column->num_chunks(); chunk_num++) {
+    for (int chunk_num = 0; chunk_num < column->num_chunks(); chunk_num++) {
       size_t offset = 0;
       for (int i = 0; i < chunk_num; i++) {
-        offset += original_column->chunk(i)->length();
+        offset += column->chunk(i)->length();
       }
-      kernels[col_num]->execute(original_column->chunk(chunk_num),
+      kernels[col_num]->execute(column->chunk(chunk_num),
                                 filter_bitmap->mutable_data() + offset / 8, offset % 8);
+    }
+  }
+
+  for (int col_num = 0; col_num < fields_count; col_num++) {
+    size_t offset = 0;
+    auto column = ctx->table->column(col_num);
+    auto filter_bitmap = column_bitmap[col_num];
+    for (int chunk_num = 0; chunk_num < column->num_chunks(); chunk_num++) {
+      if (offset % 8 != 0) {
+        kernels[col_num]->execute_remaining(
+            column->chunk(chunk_num), filter_bitmap->mutable_data() + offset / 8, 0, offset % 2);
+      }
+      offset += column->chunk(chunk_num)->length();
+      if (offset % 8 != 0) {
+        kernels[col_num]->execute_remaining(column->chunk(chunk_num),
+                                            filter_bitmap->mutable_data() + offset / 8,
+                                            column->chunk(chunk_num)->length() - (offset % 8), 0);
+      }
     }
   }
   // TODO: process skipped by filter bitmaps
   // we don't process unaligned elements (e.g last and first) in each chunk
   // we do need extra pass to process them
   // unaligned means elements from different chunk, that should share the same bitmap
+
   auto result_buf = column_bitmap[0]->mutable_data();
   for (int i = 1; i < fields_count; i++) {
     auto current_buf = column_bitmap[i]->data();
