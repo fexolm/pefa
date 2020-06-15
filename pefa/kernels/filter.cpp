@@ -9,6 +9,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/Support/Host.h>
+#include <utility>
 
 namespace pefa::internal::kernels {
 
@@ -17,7 +18,7 @@ private:
   llvm::Value *m_result;
   llvm::IRBuilder<> *m_builder;
   llvm::LLVMContext *m_context;
-  const std::shared_ptr<const arrow::Field> m_field;
+  std::shared_ptr<const arrow::Field> m_field;
   llvm::Value *m_input;
 
   // we need to keep last op to generate proper constant (true/false)
@@ -26,12 +27,12 @@ private:
 
 public:
   IrEmitVisitor(llvm::LLVMContext *context, llvm::IRBuilder<> *builder,
-                const std::shared_ptr<const arrow::Field> field, llvm::Value *input)
+                std::shared_ptr<const arrow::Field> field, llvm::Value *input)
       : utils::LLVMTypesHelper(*context)
       , m_result(nullptr)
       , m_builder(builder)
       , m_context(context)
-      , m_field(field)
+      , m_field(std::move(field))
       , m_input(input) {}
 
   void visit(const PredicateExpr &expr) override {
@@ -80,8 +81,8 @@ public:
 
 class FitlerKernelImpl : public FilterKernel, private utils::LLVMTypesHelper {
 private:
-  const std::shared_ptr<const arrow::Field> m_field;
-  const std::shared_ptr<const Expr> m_expr;
+  std::shared_ptr<const arrow::Field> m_field;
+  std::shared_ptr<const Expr> m_expr;
   llvm::LLVMContext m_context;
   llvm::orc::VModuleKey m_moduleKey{};
   bool m_is_compiled = false;

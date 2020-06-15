@@ -1,7 +1,8 @@
 #pragma once
 #include <memory>
-#include <variant>
 #include <string>
+#include <utility>
+#include <variant>
 
 namespace pefa::internal {
 
@@ -12,8 +13,8 @@ struct Expr : std::enable_shared_from_this<Expr> {
 };
 
 struct BooleanExpr : Expr {
-  std::shared_ptr<BooleanExpr> AND(const std::shared_ptr<const BooleanExpr> rhs) const;
-  std::shared_ptr<BooleanExpr> OR(const std::shared_ptr<const BooleanExpr> rhs) const;
+  std::shared_ptr<BooleanExpr> AND(std::shared_ptr<const BooleanExpr> rhs) const;
+  std::shared_ptr<BooleanExpr> OR(std::shared_ptr<const BooleanExpr> rhs) const;
 };
 
 struct BooleanConst : BooleanExpr {
@@ -29,14 +30,14 @@ struct PredicateExpr : BooleanExpr {
     OR,
   };
 
-  const std::shared_ptr<const BooleanExpr> lhs;
-  const std::shared_ptr<const BooleanExpr> rhs;
+  std::shared_ptr<const BooleanExpr> lhs;
+  std::shared_ptr<const BooleanExpr> rhs;
   const Op op;
 
-  PredicateExpr(const std::shared_ptr<const BooleanExpr> lhs,
-                const std::shared_ptr<const BooleanExpr> rhs, Op op);
-  static std::shared_ptr<PredicateExpr> create(const std::shared_ptr<const BooleanExpr> lhs,
-                                               const std::shared_ptr<const BooleanExpr> rhs, Op op);
+  PredicateExpr(std::shared_ptr<const BooleanExpr> lhs, std::shared_ptr<const BooleanExpr> rhs,
+                Op op);
+  static std::shared_ptr<PredicateExpr> create(std::shared_ptr<const BooleanExpr> lhs,
+                                               std::shared_ptr<const BooleanExpr> rhs, Op op);
   void visit(ExprVisitor &visitor) const override;
 };
 
@@ -52,15 +53,14 @@ struct CompareExpr : BooleanExpr {
     EQ,
     NEQ,
   };
-  const std::shared_ptr<const ColumnRef> lhs;
-  const std::shared_ptr<const LiteralExpr> rhs;
+  std::shared_ptr<const ColumnRef> lhs;
+  std::shared_ptr<const LiteralExpr> rhs;
   const Op op;
 
-  CompareExpr(const std::shared_ptr<const ColumnRef> lhs,
-              const std::shared_ptr<const LiteralExpr> rhs, Op op);
+  CompareExpr(std::shared_ptr<const ColumnRef> lhs, std::shared_ptr<const LiteralExpr> rhs, Op op);
 
-  static std::shared_ptr<CompareExpr> create(const std::shared_ptr<const ColumnRef> lhs,
-                                             const std::shared_ptr<const LiteralExpr> rhs, Op op);
+  static std::shared_ptr<CompareExpr> create(std::shared_ptr<const ColumnRef> lhs,
+                                             std::shared_ptr<const LiteralExpr> rhs, Op op);
   void visit(ExprVisitor &visitor) const override;
 };
 
@@ -71,19 +71,20 @@ struct ColumnRef : Expr {
   static std::shared_ptr<ColumnRef> create(std::string name);
   void visit(ExprVisitor &visitor) const override;
 
-  std::shared_ptr<CompareExpr> EQ(const std::shared_ptr<const LiteralExpr> rhs) const;
-  std::shared_ptr<CompareExpr> LE(const std::shared_ptr<const LiteralExpr> rhs) const;
-  std::shared_ptr<CompareExpr> GE(const std::shared_ptr<const LiteralExpr> rhs) const;
-  std::shared_ptr<CompareExpr> NEQ(const std::shared_ptr<const LiteralExpr> rhs) const;
-  std::shared_ptr<CompareExpr> LT(const std::shared_ptr<const LiteralExpr> rhs) const;
-  std::shared_ptr<CompareExpr> GT(const std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> EQ(std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> LE(std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> GE(std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> NEQ(std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> LT(std::shared_ptr<const LiteralExpr> rhs) const;
+  std::shared_ptr<CompareExpr> GT(std::shared_ptr<const LiteralExpr> rhs) const;
 };
 
 struct LiteralExpr : Expr {
   const std::variant<int, double, std::string, bool> value;
 
   explicit LiteralExpr(std::variant<int, double, std::string, bool> val);
-  static std::shared_ptr<LiteralExpr> create(std::variant<int, double, std::string, bool> val);
+  static std::shared_ptr<LiteralExpr>
+  create(const std::variant<int, double, std::string, bool> &val);
   void visit(ExprVisitor &visitor) const override;
 };
 
@@ -98,11 +99,11 @@ struct ExprVisitor {
 
 namespace pefa {
 inline std::shared_ptr<internal::ColumnRef> col(std::string name) {
-  return internal::ColumnRef::create(name);
+  return internal::ColumnRef::create(std::move(name));
 }
 
 inline std::shared_ptr<internal::LiteralExpr>
-lit(std::variant<int, double, std::string, bool> val) {
+lit(const std::variant<int, double, std::string, bool> &val) {
   return internal::LiteralExpr::create(val);
 }
 } // namespace pefa

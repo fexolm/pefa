@@ -1,8 +1,8 @@
 #pragma once
 #include <exception>
 #include <sstream>
-namespace pefa {
 
+namespace pefa {
 class BaseException : public std::exception {
 private:
   std::string m_msg;
@@ -10,7 +10,7 @@ private:
 public:
   explicit BaseException(std::string msg);
 
-  virtual const char *what() const noexcept;
+  [[nodiscard]] const char *what() const noexcept override;
 };
 
 class NotImplementedException : public BaseException {

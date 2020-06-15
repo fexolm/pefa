@@ -43,7 +43,7 @@ public:
 
   VModuleKey addModule(std::unique_ptr<Module> M);
 
-  JITSymbol findSymbol(const std::string Name);
+  JITSymbol findSymbol(const std::string &Name);
 
   void removeModule(VModuleKey K);
 

@@ -27,7 +27,7 @@ public:
     return ExecutionContext(Backend::filter(m_backendCtx, std::move(expr)));
   }
 
-  std::shared_ptr<arrow::Table> execute() const {
+  [[nodiscard]] std::shared_ptr<arrow::Table> execute() const {
     return Backend::execute(m_backendCtx);
   }
 };

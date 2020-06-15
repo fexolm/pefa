@@ -13,90 +13,90 @@ private:
   LLVMContext &m_context;
 
 public:
-  LLVMTypesHelper(LLVMContext &context)
+  explicit LLVMTypesHelper(LLVMContext &context)
       : m_context(context) {}
 
-  llvm::Type *bool_typ() const noexcept {
+  [[nodiscard]] llvm::Type *bool_typ() const noexcept {
     return llvm::Type::getInt1Ty(m_context);
   }
 
-  llvm::Type *i8_typ() const noexcept {
+  [[nodiscard]] llvm::Type *i8_typ() const noexcept {
     return llvm::Type::getInt8Ty(m_context);
   }
 
-  llvm::Type *i16_typ() const noexcept {
+  [[nodiscard]] llvm::Type *i16_typ() const noexcept {
     return llvm::Type::getInt16Ty(m_context);
   }
 
-  llvm::Type *i32_typ() const noexcept {
+  [[nodiscard]] llvm::Type *i32_typ() const noexcept {
     return llvm::Type::getInt32Ty(m_context);
   }
 
-  llvm::Type *i64_typ() const noexcept {
+  [[nodiscard]] llvm::Type *i64_typ() const noexcept {
     return llvm::Type::getInt64Ty(m_context);
   }
 
-  llvm::Type *f16_typ() const noexcept {
+  [[nodiscard]] llvm::Type *f16_typ() const noexcept {
     return llvm::Type::getHalfTy(m_context);
   }
 
-  llvm::Type *f32_typ() const noexcept {
+  [[nodiscard]] llvm::Type *f32_typ() const noexcept {
     return llvm::Type::getFloatTy(m_context);
   }
 
-  llvm::Type *f64_typ() const noexcept {
+  [[nodiscard]] llvm::Type *f64_typ() const noexcept {
     return llvm::Type::getDoubleTy(m_context);
   }
 
-  llvm::Value *i8val(int8_t val) const noexcept {
+  [[nodiscard]] llvm::Value *i8val(int8_t val) const noexcept {
     return llvm::ConstantInt::get(i8_typ(), val, false);
   }
 
-  llvm::Value *i16val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *i16val(long val) const noexcept {
     return llvm::ConstantInt::get(i16_typ(), val, false);
   }
 
-  llvm::Value *i32val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *i32val(long val) const noexcept {
     return llvm::ConstantInt::get(i32_typ(), val, false);
   }
 
-  llvm::Value *i64val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *i64val(long val) const noexcept {
     return llvm::ConstantInt::get(i64_typ(), val, false);
   }
 
-  llvm::Value *u8val(int8_t val) const noexcept {
+  [[nodiscard]] llvm::Value *u8val(int8_t val) const noexcept {
     return llvm::ConstantInt::get(i8_typ(), val, true);
   }
 
-  llvm::Value *u16val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *u16val(long val) const noexcept {
     return llvm::ConstantInt::get(i16_typ(), val, true);
   }
 
-  llvm::Value *u32val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *u32val(long val) const noexcept {
     return llvm::ConstantInt::get(i32_typ(), val, true);
   }
 
-  llvm::Value *u64val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *u64val(long val) const noexcept {
     return llvm::ConstantInt::get(i64_typ(), val, true);
   }
 
-  llvm::Value *f16val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f16val(long val) const noexcept {
     return llvm::ConstantFP::get(f16_typ(), val);
   }
 
-  llvm::Value *f32val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f32val(long val) const noexcept {
     return llvm::ConstantFP::get(f32_typ(), val);
   }
 
-  llvm::Value *f64val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f64val(long val) const noexcept {
     return llvm::ConstantFP::get(f64_typ(), val);
   }
 
-  llvm::Value *boolval(bool val) const noexcept {
+  [[nodiscard]] llvm::Value *boolval(bool val) const noexcept {
     return llvm::ConstantInt::get(bool_typ(), val, true);
   }
 
-  llvm::Type *from_arrow(const arrow::DataType &type) const {
+  [[nodiscard]] llvm::Type *from_arrow(const arrow::DataType &type) const {
     switch (type.id()) {
     case arrow::Type::type::INT8:
     case arrow::Type::type::UINT8:
@@ -122,11 +122,11 @@ public:
     }
   }
 
-  llvm::Type *ptr_from_arrow(const arrow::DataType &type) const {
+  [[nodiscard]] llvm::Type *ptr_from_arrow(const arrow::DataType &type) const {
     return from_arrow(type)->getPointerTo();
   }
 
-  llvm::Value *arrow_typed_const(const arrow::DataType &type, int val) const {
+  [[nodiscard]] llvm::Value *arrow_typed_const(const arrow::DataType &type, int val) const {
     switch (type.id()) {
       PEFA_CASE_RET(PEFA_INT8_CASE, i8val(val))
       PEFA_CASE_RET(PEFA_INT16_CASE, i16val(val))
@@ -141,7 +141,7 @@ public:
     }
   }
 
-  llvm::Value *arrow_typed_const(const arrow::DataType &type, double val) const {
+  [[nodiscard]] llvm::Value *arrow_typed_const(const arrow::DataType &type, double val) const {
     switch (type.id()) {
       PEFA_CASE_RET(PEFA_FLOAT16_CASE, f16val(val))
       PEFA_CASE_RET(PEFA_FLOAT32_CASE, f32val(val))
