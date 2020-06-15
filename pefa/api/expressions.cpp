@@ -92,8 +92,7 @@ LiteralExpr::LiteralExpr(std::variant<int, double, std::string, bool> val)
 void LiteralExpr::visit(ExprVisitor &visitor) const {
   visitor.visit(*this);
 }
-std::shared_ptr<LiteralExpr>
-LiteralExpr::create(std::variant<int, double, std::string, bool> val) {
+std::shared_ptr<LiteralExpr> LiteralExpr::create(std::variant<int, double, std::string, bool> val) {
   return std::make_shared<LiteralExpr>(val);
 }
 

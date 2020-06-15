@@ -6,7 +6,8 @@
 #include <memory>
 
 namespace pefa {
-template <typename Backend> class ExecutionContext {
+template <typename Backend>
+class ExecutionContext {
 private:
   using Context = typename backends::BackendTraits<Backend>::ContextType;
   std::shared_ptr<Context> m_backendCtx;
