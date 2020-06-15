@@ -83,34 +83,56 @@ private:
   const std::shared_ptr<const arrow::Field> m_field;
   const std::shared_ptr<const Expr> m_expr;
   llvm::LLVMContext m_context;
-  llvm::orc::VModuleKey m_moduleKey;
+  llvm::orc::VModuleKey m_moduleKey{};
   bool m_is_compiled = false;
   std::shared_ptr<pefa::jit::JIT> m_jit;
-  void (*m_func)(const uint8_t *, uint8_t *, int64_t);
+  void (*m_filter_func)(const uint8_t *, uint8_t *, int64_t){};
+  void (*m_filter_remaining_func)(const uint8_t *, uint8_t *, uint8_t, uint8_t){};
 
 public:
-  FitlerKernelImpl(const std::shared_ptr<const arrow::Field> field,
-                   const std::shared_ptr<const Expr> expr)
-      : m_field(field)
-      , m_expr(expr)
+  FitlerKernelImpl(std::shared_ptr<const arrow::Field> field, std::shared_ptr<const Expr> expr)
+      : m_field(std::move(field))
+      , m_expr(std::move(expr))
       , m_context(llvm::LLVMContext())
       , m_jit(jit::get_JIT())
       , utils::LLVMTypesHelper(m_context) {}
 
-  void execute(const std::shared_ptr<arrow::Array> column, uint8_t *bitmap,
+  void execute(std::shared_ptr<const arrow::Array> column, uint8_t *bitmap,
                size_t offset) override {
     if (!m_is_compiled) {
       throw KernelNotCompiledException();
     }
     if (auto type = dynamic_cast<arrow::FixedWidthType *>(column->type().get())) {
-      m_func(column->data()->buffers[1]->data() + (type->bit_width() * offset / 8),
-             bitmap + (offset != 0), column->length() - offset);
+      m_filter_func(column->data()->buffers[1]->data() + (type->bit_width() * offset / 8),
+                    bitmap + (offset != 0), column->length() - offset);
     } else {
       throw NotImplementedException("Variable length type filtering does not implemented yet");
     }
   }
 
-  ~FitlerKernelImpl() {
+  void execute_remaining(std::shared_ptr<const arrow::Array> column, uint8_t *bitmap,
+                         size_t array_offset, uint8_t bit_offset) override {
+    if (!m_is_compiled) {
+      throw KernelNotCompiledException();
+    }
+    if (auto type = dynamic_cast<arrow::FixedWidthType *>(column->type().get())) {
+      uint8_t len = 0;
+      // begining of chunk
+      if (array_offset == 0) {
+        len = 8 - bit_offset;
+      } else {
+        // end of chunk
+        len = static_cast<uint8_t>(column->length() - array_offset);
+      }
+      m_filter_remaining_func(column->data()->buffers[1]->data() +
+                                  (type->bit_width() * array_offset / 8),
+                              bitmap, len, bit_offset);
+    } else {
+      throw NotImplementedException("Variable length type filtering does not implemented yet");
+    }
+  }
+
+  ~FitlerKernelImpl() override {
     if (m_is_compiled) {
       m_jit->removeModule(m_moduleKey);
     }
@@ -121,13 +143,16 @@ public:
     module->setTargetTriple(llvm::sys::getProcessTriple());
     gen_predicate_func(*module);
     gen_filter_func(*module);
+    gen_filter_remaining_func(*module);
     auto &machine = m_jit->getTargetMachine();
     auto layout = machine.createDataLayout();
     module->setDataLayout(layout);
     m_moduleKey = m_jit->addModule(std::move(module));
-    auto sym = m_jit->findSymbol(m_field->name() + "_filter");
-    m_func =
-        reinterpret_cast<void (*)(const uint8_t *, uint8_t *, int64_t)>(sym.getAddress().get());
+    m_filter_func = reinterpret_cast<void (*)(const uint8_t *, uint8_t *, int64_t)>(
+        m_jit->findSymbol(m_field->name() + "_filter").getAddress().get());
+    m_filter_remaining_func =
+        reinterpret_cast<void (*)(const uint8_t *, uint8_t *, uint8_t, uint8_t)>(
+            m_jit->findSymbol(m_field->name() + "_filter_remaining").getAddress().get());
     m_is_compiled = true;
   }
 
@@ -247,10 +272,67 @@ private:
     builder.SetInsertPoint(end_for1);
     builder.CreateRetVoid();
   }
+
+  // filters remaining first/last elements
+  void gen_filter_remaining_func(llvm::Module &module) {
+    std::vector<llvm::Type *> param_type{
+        llvm::Type::getInt8PtrTy(m_context), llvm::Type::getInt8PtrTy(m_context),
+        llvm::Type::getInt8Ty(m_context), llvm::Type::getInt8Ty(m_context)};
+
+    llvm::FunctionType *prototype =
+        llvm::FunctionType::get(llvm::Type::getVoidTy(m_context), param_type, false);
+
+    llvm::Function *func = llvm::Function::Create(prototype, llvm::Function::ExternalLinkage,
+                                                  m_field->name() + "_filter_remaining", module);
+
+    llvm::BasicBlock *body = llvm::BasicBlock::Create(m_context, "body", func);
+    llvm::BasicBlock *cond = llvm::BasicBlock::Create(m_context, "loop.cond", func);
+    llvm::BasicBlock *loop = llvm::BasicBlock::Create(m_context, "loop.body", func);
+    llvm::BasicBlock *end_loop = llvm::BasicBlock::Create(m_context, "loop.end", func);
+
+    llvm::Value *arg_source = func->getArg(0);
+    llvm::Value *arg_dest = func->getArg(1);
+    llvm::Value *arg_len = func->getArg(2);
+    llvm::Value *arg_bit_offset = func->getArg(3);
+
+    llvm::IRBuilder builder(m_context);
+    builder.SetInsertPoint(body);
+    auto *i = builder.CreateAlloca(i8_typ(), nullptr, "i");
+    builder.CreateStore(i8val(0), i);
+    auto *source = builder.CreatePointerCast(arg_source, ptr_from_arrow(*m_field->type()));
+    builder.CreateBr(cond);
+
+    builder.SetInsertPoint(cond);
+    auto condition = builder.CreateICmpSLT(builder.CreateLoad(i), arg_len);
+    builder.CreateCondBr(condition, loop, end_loop);
+
+    builder.SetInsertPoint(loop);
+
+    // TODO: understand where it is necessary to use signed operations in filter kernel
+    auto bit = builder.CreateIntCast(
+        builder.CreateCall(
+            module.getFunction(m_field->name() + "_predicate"),
+            {builder.CreateLoad(builder.CreateInBoundsGEP(source, builder.CreateLoad(i)))}),
+        i8_typ(), false);
+
+    // ~(((~bit) & 1) << (7 - i - offset)
+    auto masked_bit = builder.CreateNot(builder.CreateShl(
+        builder.CreateAnd(builder.CreateNot(bit), i8val(1)),
+        builder.CreateSub(i8val(7), builder.CreateAdd(builder.CreateLoad(i), arg_bit_offset))));
+
+    // we assume that arg_dest is already pointed on required byte, so no offset is needed
+    builder.CreateStore(builder.CreateAnd(builder.CreateLoad(arg_dest), masked_bit), arg_dest);
+
+    builder.CreateStore(builder.CreateAdd(builder.CreateLoad(i), i8val(1)), i);
+    builder.CreateBr(cond);
+
+    builder.SetInsertPoint(end_loop);
+    builder.CreateRetVoid();
+  }
 };
 
-std::unique_ptr<FilterKernel> FilterKernel::create_cpu(const std::shared_ptr<arrow::Field> field,
-                                                       const std::shared_ptr<Expr> expr) {
-  return std::make_unique<FitlerKernelImpl>(field, expr);
+std::unique_ptr<FilterKernel> FilterKernel::create_cpu(std::shared_ptr<const arrow::Field> field,
+                                                       std::shared_ptr<const Expr> expr) {
+  return std::make_unique<FitlerKernelImpl>(std::move(field), std::move(expr));
 }
 } // namespace pefa::internal::kernels

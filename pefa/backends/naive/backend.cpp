@@ -28,6 +28,7 @@ std::shared_ptr<Context> Backend::filter(const std::shared_ptr<Context> ctx,
   auto schema = ctx->table->schema();
   auto fields_count = schema->num_fields();
   if (fields_count == 0 || ctx->table->column(0)->num_chunks() == 0) {
+    // TODO: make Context const and do a copy
     return ctx;
   }
   std::vector<std::unique_ptr<kernels::FilterKernel>> kernels(fields_count);
