@@ -1,9 +1,9 @@
-name: test-clang-format
+name: lint-clang-format
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
-  build:
+  lint-clang-format:
     runs-on: ubuntu-latest
 
     steps:

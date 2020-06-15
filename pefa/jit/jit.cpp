@@ -66,7 +66,7 @@ VModuleKey JIT::addModule(std::unique_ptr<Module> M) {
   cantFail(m_optimize_layer.addModule(K, std::move(M)));
   return K;
 }
-JITSymbol JIT::findSymbol(const std::string& Name) {
+JITSymbol JIT::findSymbol(const std::string &Name) {
   std::string MangledName;
   raw_string_ostream MangledNameStream(MangledName);
   Mangler::getNameWithPrefix(MangledNameStream, Name, m_data_layout);
