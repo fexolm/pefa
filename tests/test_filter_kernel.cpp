@@ -79,7 +79,6 @@ TYPED_TEST(FilterKernelOffsetsTest, testRemainingBeginOffset4) {
 }
 
 TYPED_TEST(FilterKernelOffsetsTest, testRemainingEndOffset2) {
-  // 0, 4, 2, 4, 4, 5, 4, 7, 4, 9, 12, 4, 3]
   this->m_filter->execute_remaining(this->m_array, this->m_bitmap->mutable_data(), 0, 4);
   arrow::AssertBufferEqual(*this->m_bitmap, std::vector<uint8_t>({0b11110101, 0b11111111}));
 }
