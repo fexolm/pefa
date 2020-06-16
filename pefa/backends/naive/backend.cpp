@@ -2,7 +2,6 @@
 
 #include "pefa/kernels/filter.h"
 
-#include <glob.h>
 #include <memory>
 
 namespace pefa::backends::naive {
@@ -71,10 +70,6 @@ std::shared_ptr<Context> Backend::filter(const std::shared_ptr<Context> ctx,
       }
     }
   }
-  // TODO: process skipped by filter bitmaps
-  // we don't process unaligned elements (e.g last and first) in each chunk
-  // we do need extra pass to process them
-  // unaligned means elements from different chunk, that should share the same bitmap
 
   auto result_buf = column_bitmap[0]->mutable_data();
   for (int i = 1; i < fields_count; i++) {
@@ -83,12 +78,12 @@ std::shared_ptr<Context> Backend::filter(const std::shared_ptr<Context> ctx,
       result_buf[j] &= current_buf[j];
     }
   }
+  
   // TODO: apply filter to all columns
   // As a solution for this we can calculate length of all arrays by using popcnt
   // Then allocate blocks with that lengths (merge small blocks if any)
   // And create chunks in parallel
   // Very big chunks can be split later by slicing
-
   return std::make_shared<Context>(ctx->table); // TODO: return generated table context
 }
 
