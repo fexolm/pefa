@@ -37,6 +37,7 @@ add_library(pefa STATIC
         pefa/backends/naive/backend.cpp
         pefa/backends/lazy/backend.cpp
         pefa/backends/lazy/logical_plan.cpp
+        pefa/backends/lazy/plan_optimizer.cpp
         pefa/kernels/filter.cpp
         pefa/api/expressions.cpp
         pefa/api/exceptions.cpp
