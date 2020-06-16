@@ -13,7 +13,7 @@ pefa::NotImplementedException::NotImplementedException(std::string msg)
     : BaseException(std::move(msg)) {}
 
 pefa::KernelNotCompiledException::KernelNotCompiledException()
-    : BaseException("Kernel must be compiled before execution") {}
+    : BaseException("Kernel must be compiled before query_compiler") {}
 
 pefa::UnreachableException::UnreachableException()
     : BaseException("Unreachable branch invoked") {}

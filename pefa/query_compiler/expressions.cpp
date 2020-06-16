@@ -1,7 +1,7 @@
 #include "expressions.h"
 
 #include <utility>
-namespace pefa::internal {
+namespace pefa::query_compiler {
 
 ColumnRef::ColumnRef(std::string name)
     : name(std::move(name)) {}
@@ -113,4 +113,11 @@ void ExprVisitor::visit(const CompareExpr &expr) {
 void ExprVisitor::visit(const LiteralExpr &expr) {}
 
 void ExprVisitor::visit(const BooleanConst &expr) {}
-} // namespace pefa::internal
+
+std::shared_ptr<ColumnRef> col(std::string name) {
+  return ColumnRef::create(std::move(name));
+}
+std::shared_ptr<LiteralExpr> lit(const std::variant<int, double, std::string, bool> &val) {
+  return LiteralExpr::create(val);
+}
+} // namespace pefa::query_compiler

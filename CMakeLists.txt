@@ -33,25 +33,21 @@ include_directories(${LLVM_INCLUDE_DIR})
 include_directories(${Arrow_INCLUDE_DIR})
 include_directories(${DEPS_INCLUDE_DIR})
 
-add_library(pefa STATIC
-        pefa/backends/naive/backend.cpp
-        pefa/kernels/filter.cpp
-        pefa/api/expressions.cpp
-        pefa/api/exceptions.cpp
-        pefa/jit/jit.cpp
-        )
+file(GLOB_RECURSE SOURCES pefa/*.cpp)
+
+add_library(pefa STATIC ${SOURCES})
 
 target_link_libraries(pefa ${PEFA_DEPS})
 
 
-if(ENABLE_TESTS)
+if (ENABLE_TESTS)
     include(cmake/install-gtest.cmake)
     set(PEFA_TEST_DEPS ${GOOGLE_TEST_LIBS} pthread)
     add_subdirectory(tests)
-endif()
+endif ()
 
-if(ENABLE_BENCHMARKS)
+if (ENABLE_BENCHMARKS)
     find_package(benchmark REQUIRED)
     include_directories(${benchmark_INCLUDE_DIR})
     add_subdirectory(benchmarks)
-endif()
+endif ()

@@ -4,10 +4,8 @@
 #include <arrow/table.h>
 #include <gtest/gtest.h>
 #include <memory>
-#include <pefa/api/api.h>
-#include <pefa/backends/naive/backend.h>
-#include <pefa/jit/jit.h>
-#include <pefa/kernels/filter.h>
+#include <pefa/query_compiler/expressions.h>
+#include <pefa/query_compiler/query_compiler.h>
 
 class NotSegfaultTest : public ::testing::Test {};
 
@@ -26,12 +24,14 @@ TEST_F(NotSegfaultTest, projectionTest) {
 
   auto table = table_reader->Read().ValueOrDie();
 
-  pefa::ExecutionContext<pefa::backends::naive::Backend> ctx(table);
+  pefa::query_compiler::QueryCompiler qc(table);
 
-  auto result = ctx.project({"a", "b"}).execute();
+  auto result = qc.project({"a", "b"}).execute();
 }
 
 TEST_F(NotSegfaultTest, filterTest) {
+  using namespace pefa::query_compiler;
+
   auto memory_pool = arrow::default_memory_pool();
   auto arrow_parse_options = arrow::csv::ParseOptions::Defaults();
   auto arrow_read_options = arrow::csv::ReadOptions::Defaults();
@@ -46,14 +46,9 @@ TEST_F(NotSegfaultTest, filterTest) {
 
   auto table = table_reader->Read().ValueOrDie();
 
-  pefa::ExecutionContext<pefa::backends::naive::Backend> ctx(table);
+  pefa::query_compiler::QueryCompiler qc(table);
 
-  auto result = ctx.project({"a", "b"});
+  auto expr = ((col("a")->EQ(lit(4)))->AND(col("a")->GE(lit(3))))->OR(col("b")->EQ(lit(1)));
 
-  auto expr = ((pefa::col("a")->EQ(pefa::lit(4)))->AND(pefa::col("a")->GE(pefa::lit(3))))
-                  ->OR(pefa::col("b")->EQ(pefa::lit(1)));
-
-  result = result.filter(expr);
-
-  result.execute();
+  auto result = qc.filter(expr).execute();
 }
