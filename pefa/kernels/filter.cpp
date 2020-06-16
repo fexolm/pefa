@@ -120,6 +120,7 @@ public:
       uint8_t len = 0;
       // begining of chunk
       if (array_offset == 0) {
+        // TODO: this will fail if array length < 8
         len = 8 - bit_offset;
       } else {
         // end of chunk
