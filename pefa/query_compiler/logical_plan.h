@@ -1,10 +1,10 @@
 #pragma once
-#include "pefa/api/expressions.h"
+#include "expressions.h"
 
 #include <memory>
 #include <vector>
 
-namespace pefa::backends::lazy {
+namespace pefa::query_compiler {
 struct PlanVisitor;
 
 struct LogicalPlan : std::enable_shared_from_this<LogicalPlan> {
@@ -20,9 +20,9 @@ struct ProjectionNode : LogicalPlan {
 
 struct FilterNode : LogicalPlan {
   std::shared_ptr<LogicalPlan> input;
-  std::shared_ptr<internal::BooleanExpr> expr;
+  std::shared_ptr<BooleanExpr> expr;
   void visit(PlanVisitor &visitor) const override;
-  FilterNode(std::shared_ptr<LogicalPlan> input, std::shared_ptr<internal::BooleanExpr> expr);
+  FilterNode(std::shared_ptr<LogicalPlan> input, std::shared_ptr<BooleanExpr> expr);
 };
 
 struct PlanVisitor {
@@ -30,4 +30,4 @@ struct PlanVisitor {
   virtual void visit(const FilterNode &node);
 };
 
-} // namespace pefa::backends::lazy
+} // namespace pefa::query_compiler

@@ -4,11 +4,12 @@
 #include <memory>
 #include <utility>
 
-namespace pefa::backends::lazy {
+namespace pefa::query_compiler {
 
 struct OptimizerPass : PlanVisitor {
   [[nodiscard]] virtual std::shared_ptr<LogicalPlan>
-  execute(std::shared_ptr<LogicalPlan> input) const = 0;
+  execute(std::shared_ptr<LogicalPlan> input) = 0;
+  virtual ~OptimizerPass() = default;
 };
 
 class JoinFilterPass : public OptimizerPass {
@@ -18,8 +19,8 @@ private:
 public:
   JoinFilterPass() = default;
 
-  [[nodiscard]] std::shared_ptr<LogicalPlan>
-  execute(std::shared_ptr<LogicalPlan> input) const override {
+  [[nodiscard]] std::shared_ptr<LogicalPlan> execute(std::shared_ptr<LogicalPlan> input) override {
+    input->visit(*this);
     return result;
   }
 
@@ -27,7 +28,7 @@ public:
     OptimizerPass::visit(node);
     result = std::make_shared<ProjectionNode>(result, node.fields);
   }
-  
+
   void visit(const FilterNode &node) override {
     OptimizerPass::visit(node);
     if (auto prev = std::dynamic_pointer_cast<FilterNode>(result)) {
@@ -37,7 +38,7 @@ public:
     }
   }
 
-  static std::unique_ptr<JoinFilterPass> create() {
+  [[nodiscard]] static std::unique_ptr<JoinFilterPass> create() {
     return std::make_unique<JoinFilterPass>();
   }
 };
@@ -51,6 +52,6 @@ public:
 
   void add_pass(std::unique_ptr<OptimizerPass> pass);
 
-  std::shared_ptr<LogicalPlan> run(std::shared_ptr<LogicalPlan> input);
+  [[nodiscard]] std::shared_ptr<LogicalPlan> run(std::shared_ptr<LogicalPlan> input);
 };
-} // namespace pefa::backends::lazy
+} // namespace pefa::query_compiler

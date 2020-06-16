@@ -1,5 +1,5 @@
 #pragma once
-#include "pefa/api/exceptions.h"
+#include "exceptions.h"
 #include "utils.h"
 
 #include <iostream>
@@ -7,7 +7,7 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/Value.h>
-namespace pefa::internal::utils {
+namespace pefa::utils {
 class LLVMTypesHelper {
 private:
   LLVMContext &m_context;
@@ -164,7 +164,7 @@ public:
       throw NotImplementedException(std::string("Comparing elements of type") + type.ToString() +  \
                                     " is not supported yet");                                      \
     }                                                                                              \
-  } // namespace pefa::internal::utils
+  } // namespace pefa::utils
 
   __PEFA_CREATE_CMP_FUNC(create_cmp_gt, CreateICmpSGT, CreateICmpUGT, CreateFCmpOGT)
   __PEFA_CREATE_CMP_FUNC(create_cmp_lt, CreateICmpSLT, CreateICmpULT, CreateFCmpOLT)
@@ -184,5 +184,5 @@ public:
       throw UnreachableException();
     }
   }
-}; // namespace pefa::internal::utils
-} // namespace pefa::internal::utils
+}; // namespace pefa::utils
+} // namespace pefa::utils

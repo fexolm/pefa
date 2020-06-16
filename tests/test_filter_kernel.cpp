@@ -5,7 +5,8 @@
 #include <arrow/type_traits.h>
 #include <gtest/gtest.h>
 
-using namespace pefa::internal;
+using namespace pefa;
+using namespace pefa::query_compiler;
 
 template <typename ArrowType>
 class FilterKernelTest : public ::testing::Test {
@@ -36,8 +37,8 @@ protected:
 
   void SetUp() override {
     FilterKernelTest<ArrowType>::SetUp();
-    auto expr = ((pefa::col("field")->EQ(pefa::lit(4)))->AND(pefa::col("field")->GE(pefa::lit(3))))
-                    ->OR(pefa::col("smthelse")->EQ(pefa::lit(1)));
+    auto expr = ((col("field")->EQ(lit(4)))->AND(col("field")->GE(lit(3))))
+                    ->OR(col("smthelse")->EQ(lit(1)));
     m_filter = kernels::FilterKernel::create_cpu(this->m_field, expr);
     m_filter->compile();
   }

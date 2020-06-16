@@ -1,12 +1,13 @@
-#include "backend.h"
+#include "execution.h"
 
+#include "execution_context.h"
 #include "pefa/kernels/filter.h"
 
+#include <arrow/api.h>
 #include <memory>
 
-namespace pefa::backends::naive {
-using namespace internal;
-std::shared_ptr<Context> Backend::project(const std::shared_ptr<Context> &ctx,
+namespace pefa::execution {
+std::shared_ptr<ExecutionContext> project(const std::shared_ptr<ExecutionContext> &ctx,
                                           std::vector<std::string> column_names) {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(column_names.size());
   std::vector<std::shared_ptr<arrow::Field>> fields(column_names.size());
@@ -15,15 +16,12 @@ std::shared_ptr<Context> Backend::project(const std::shared_ptr<Context> &ctx,
     fields[i] = std::make_shared<arrow::Field>(column_names[i], col->type());
     columns[i] = col;
   }
-  return std::make_shared<Context>(
+  return std::make_shared<ExecutionContext>(
       arrow::Table::Make(std::make_shared<arrow::Schema>(fields), columns));
 }
 
-std::shared_ptr<arrow::Table> Backend::execute(const std::shared_ptr<Context> &ctx) {
-  return ctx->table;
-}
-std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx,
-                                         const std::shared_ptr<internal::Expr> &expr) {
+std::shared_ptr<ExecutionContext> filter(std::shared_ptr<ExecutionContext> ctx,
+                                         const std::shared_ptr<BooleanExpr> &expr) {
   // TODO: make that implementation parallel
   auto schema = ctx->table->schema();
   auto fields_count = schema->num_fields();
@@ -78,13 +76,12 @@ std::shared_ptr<Context> Backend::filter(std::shared_ptr<Context> ctx,
       result_buf[j] &= current_buf[j];
     }
   }
-  
+
   // TODO: apply filter to all columns
   // As a solution for this we can calculate length of all arrays by using popcnt
   // Then allocate blocks with that lengths (merge small blocks if any)
   // And create chunks in parallel
   // Very big chunks can be split later by slicing
-  return std::make_shared<Context>(ctx->table); // TODO: return generated table context
+  return std::make_shared<ExecutionContext>(ctx->table); // TODO: return generated table context
 }
-
-} // namespace pefa::backends::naive
+} // namespace pefa::execution

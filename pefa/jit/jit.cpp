@@ -15,6 +15,7 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/Transforms/IPO.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <optional>
 
 namespace pefa::jit {
 
@@ -120,16 +121,17 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
   passes.run(*module);
   return module;
 }
-std::shared_ptr<JIT> get_JIT() {
-  static std::shared_ptr<JIT> jit;
-  if (jit) {
-    return jit;
+
+JIT *get_JIT() {
+  static std::optional<JIT> jit;
+  if (jit.has_value()) {
+    return &jit.value();
   } else {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
-    jit = std::make_shared<JIT>();
-    return jit;
+    jit.emplace();
+    return &jit.value();
   }
 }
 } // namespace pefa::jit

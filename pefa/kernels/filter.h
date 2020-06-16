@@ -1,10 +1,10 @@
 #pragma once
-#include "pefa/api/expressions.h"
+#include "pefa/query_compiler/expressions.h"
 
 #include <arrow/api.h>
 
-namespace pefa::internal::kernels {
-
+namespace pefa::kernels {
+using namespace query_compiler;
 class FilterKernel {
 public:
   // Filter kernel generates validity bitmap for array with ones on posiotions, where expr is true
@@ -15,9 +15,10 @@ public:
   virtual void execute_remaining(std::shared_ptr<const arrow::Array> column, uint8_t *bitmap,
                                  size_t array_offset, uint8_t bit_offset) = 0;
   virtual void compile() = 0;
-  static std::unique_ptr<FilterKernel> create_cpu(std::shared_ptr<const arrow::Field> field,
-                                                  std::shared_ptr<const Expr> expr);
+
+  [[nodiscard]] static std::unique_ptr<FilterKernel>
+  create_cpu(std::shared_ptr<const arrow::Field> field, std::shared_ptr<const Expr> expr);
 
   virtual ~FilterKernel() = default;
 };
-} // namespace pefa::internal::kernels
+} // namespace pefa::kernels

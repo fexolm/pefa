@@ -1,7 +1,8 @@
 #include "filter.h"
 
-#include "pefa/api/exceptions.h"
 #include "pefa/jit/jit.h"
+#include "pefa/query_compiler/expressions.h"
+#include "pefa/utils/exceptions.h"
 #include "pefa/utils/llvm_helpers.h"
 #include "pefa/utils/utils.h"
 
@@ -11,8 +12,7 @@
 #include <llvm/Support/Host.h>
 #include <utility>
 
-namespace pefa::internal::kernels {
-
+namespace pefa::kernels {
 class IrEmitVisitor : public ExprVisitor, private utils::LLVMTypesHelper {
 private:
   llvm::Value *m_result;
@@ -77,7 +77,7 @@ public:
   llvm::Value *result() {
     return m_result;
   }
-}; // namespace pefa::backends::naive::kernels
+};
 
 class FitlerKernelImpl : public FilterKernel, private utils::LLVMTypesHelper {
 private:
@@ -86,7 +86,7 @@ private:
   llvm::LLVMContext m_context;
   llvm::orc::VModuleKey m_moduleKey{};
   bool m_is_compiled = false;
-  std::shared_ptr<pefa::jit::JIT> m_jit;
+  pefa::jit::JIT *m_jit;
   void (*m_filter_func)(const uint8_t *, uint8_t *, int64_t){};
   void (*m_filter_remaining_func)(const uint8_t *, uint8_t *, uint8_t, uint8_t){};
 
@@ -337,4 +337,4 @@ std::unique_ptr<FilterKernel> FilterKernel::create_cpu(std::shared_ptr<const arr
                                                        std::shared_ptr<const Expr> expr) {
   return std::make_unique<FitlerKernelImpl>(std::move(field), std::move(expr));
 }
-} // namespace pefa::internal::kernels
+} // namespace pefa::kernels
