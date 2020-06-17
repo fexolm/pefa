@@ -6,6 +6,7 @@
 #include "pefa/utils/llvm_helpers.h"
 #include "pefa/utils/utils.h"
 
+#include <algorithm>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -67,10 +68,8 @@ public:
                       m_result = create_cmp_ne(typ, *m_builder, m_input, constant))
       }
     } else {
-      switch (m_last_op) {
-        PEFA_CASE_BRK(case PredicateExpr::Op::OR:, m_result = boolval(false))
-        PEFA_CASE_BRK(case PredicateExpr::Op::AND:, m_result = boolval(true))
-      }
+      // TODO: implement more informative assert
+      assert(false);
     }
   }
 
@@ -120,8 +119,8 @@ public:
       uint8_t len = 0;
       // begining of chunk
       if (array_offset == 0) {
-        // TODO: this will fail if array length < 8
-        len = 8 - bit_offset;
+        len = std::min(static_cast<uint8_t>(8 - bit_offset),
+                       static_cast<uint8_t>(column->length() - array_offset));
       } else {
         // end of chunk
         len = static_cast<uint8_t>(column->length() - array_offset);
