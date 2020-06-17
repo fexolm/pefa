@@ -37,8 +37,7 @@ protected:
 
   void SetUp() override {
     FilterKernelTest<ArrowType>::SetUp();
-    auto expr = ((col("field")->EQ(lit(4)))->AND(col("field")->GE(lit(3))))
-                    ->OR(col("smthelse")->EQ(lit(1)));
+    auto expr = ((col("field")->EQ(lit(4)))->AND(col("field")->GE(lit(3))));
     m_filter = kernels::FilterKernel::create_cpu(this->m_field, expr);
     m_filter->compile();
   }
