@@ -5,6 +5,8 @@
 
 #include <arrow/api.h>
 #include <memory>
+#include <pefa/utils/exceptions.h>
+#include <pefa/utils/utils.h>
 #include <utility>
 
 namespace pefa::execution {
@@ -97,19 +99,79 @@ std::shared_ptr<arrow::Buffer> generate_filter_bitmap(const std::shared_ptr<Exec
   return expr_executor.result();
 }
 
+template <typename T>
+std::shared_ptr<arrow::ChunkedArray> materialize_column(const arrow::ChunkedArray &column,
+                                                        const uint8_t *bitmap) {
+  const int chunk_size = 2 << 13;
+
+  auto type = column.type();
+  auto total_length = column.length();
+
+  std::vector<std::shared_ptr<arrow::Array>> new_column;
+  int current_chunk = 0;
+  int current_chunk_pos = 0;
+  int total_elements_pos = 0;
+
+  do {
+    int new_chunk_pos = 0;
+    auto buffer = arrow::AllocateBuffer(sizeof(T) * chunk_size).ValueOrDie();
+    auto data_out = reinterpret_cast<T *>(buffer->mutable_data());
+    for (; new_chunk_pos < chunk_size && total_elements_pos < total_length; current_chunk++) {
+      auto &chunk = *column.chunk(current_chunk);
+      // TODO: process validity buffer too
+      auto chunk_data = reinterpret_cast<T *>(chunk.data()->buffers[1]->mutable_data());
+      for (; new_chunk_pos < chunk_size && current_chunk_pos < chunk.length();
+           current_chunk_pos++, total_elements_pos++) {
+        // TODO: this wouldn't vectorize with division.
+        // Need to rewrite it to for(int i=0; i<8; i++) or smth like that
+        new_chunk_pos += (bitmap[total_elements_pos / 8] >> (total_elements_pos % 8)) & 1;
+        data_out[new_chunk_pos] = chunk_data[current_chunk_pos];
+      }
+    }
+    auto array_data = arrow::ArrayData::Make(
+        type, new_chunk_pos, {nullptr, std::shared_ptr<arrow::Buffer>(std::move(buffer))});
+    auto array = arrow::MakeArray(array_data);
+    new_column.push_back(array);
+  } while (total_elements_pos < total_length);
+  return std::make_shared<arrow::ChunkedArray>(new_column);
+}
+
 std::shared_ptr<ExecutionContext> filter(const std::shared_ptr<ExecutionContext> &ctx,
                                          const std::shared_ptr<BooleanExpr> &expr) {
-  if (ctx->table->schema()->num_fields() == 0 || ctx->table->column(0)->num_chunks() == 0) {
+  if (ctx->table->num_columns() == 0 || ctx->table->column(0)->num_chunks() == 0) {
     return std::make_shared<ExecutionContext>(ctx->table, ctx->plan);
   }
   auto bitmap = generate_filter_bitmap(ctx, expr);
-  // TODO: apply filter to all columns
-  // As a solution for this we can calculate length of all arrays by using popcnt
-  // Then allocate blocks with that lengths (merge small blocks if any)
-  // And create chunks in parallel
-  // Very big chunks can be split later by slicing
 
-  // TODO: return generated table context
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> new_columns;
+  auto &table = *ctx->table;
+  for (int col_num = 0; col_num < ctx->table->num_columns(); col_num++) {
+    switch (table.column(col_num)->type()->id()) {
+      PEFA_CASE_BRK(PEFA_INT8_CASE, new_columns.push_back(materialize_column<int8_t>(
+                                        *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_INT16_CASE, new_columns.push_back(materialize_column<int16_t>(
+                                         *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_INT32_CASE, new_columns.push_back(materialize_column<int32_t>(
+                                         *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_INT64_CASE, new_columns.push_back(materialize_column<int64_t>(
+                                         *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_UINT8_CASE, new_columns.push_back(materialize_column<uint8_t>(
+                                         *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_UINT16_CASE, new_columns.push_back(materialize_column<uint16_t>(
+                                          *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_UINT32_CASE, new_columns.push_back(materialize_column<uint32_t>(
+                                          *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_UINT64_CASE, new_columns.push_back(materialize_column<uint64_t>(
+                                          *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_FLOAT32_CASE, new_columns.push_back(materialize_column<float>(
+                                           *table.column(col_num), bitmap->data())))
+      PEFA_CASE_BRK(PEFA_FLOAT64_CASE, new_columns.push_back(materialize_column<double>(
+                                           *table.column(col_num), bitmap->data())))
+    default:
+      throw NotImplementedException("Type " + table.column(col_num)->type()->ToString() +
+                                    " is not supported yet");
+    }
+  }
   return std::make_shared<ExecutionContext>(ctx->table, ctx->plan);
 }
 } // namespace pefa::execution

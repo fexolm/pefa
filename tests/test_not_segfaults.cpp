@@ -48,7 +48,7 @@ TEST_F(NotSegfaultTest, filterTest) {
 
   pefa::query_compiler::QueryCompiler qc(table);
 
-  auto expr = ((col("a")->EQ(lit(4)))->AND(col("a")->GE(lit(3))))->OR(col("b")->EQ(lit(1)));
+  auto expr = ((col("a")->GE(lit(0)))->AND(col("a")->GE(lit(3))))->OR(col("b")->EQ(lit(1)));
 
   auto result = qc.filter(expr).execute();
 }
