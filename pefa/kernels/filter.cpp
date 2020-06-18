@@ -85,7 +85,7 @@ private:
   llvm::LLVMContext m_context;
   llvm::orc::VModuleKey m_moduleKey{};
   bool m_is_compiled = false;
-  pefa::jit::JIT *m_jit;
+  std::shared_ptr<pefa::jit::JIT> m_jit;
   void (*m_filter_func)(const uint8_t *, uint8_t *, int64_t){};
   void (*m_filter_remaining_func)(const uint8_t *, uint8_t *, uint8_t, uint8_t){};
 
@@ -140,6 +140,7 @@ public:
   }
 
   void compile() override {
+    // TODO: use VMModuleKey to resolve collision with another module when finding function
     auto module = std::make_unique<llvm::Module>(m_field->name() + "_filter_mod", m_context);
     module->setTargetTriple(llvm::sys::getProcessTriple());
     gen_predicate_func(*module);

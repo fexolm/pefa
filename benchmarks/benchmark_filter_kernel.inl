@@ -35,5 +35,5 @@ BENCHMARK_DEFINE_F(FilterKernelBenchmarkFixture, BenchmarkFilter)
 }
 
 BENCHMARK_REGISTER_F(FilterKernelBenchmarkFixture, BenchmarkFilter)
-    ->RangeMultiplier(2)
-    ->Range(1 << 8, 1 << 21);
+    ->RangeMultiplier(100)
+    ->Range(1000, 100000000);

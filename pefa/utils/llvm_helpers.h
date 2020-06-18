@@ -80,15 +80,15 @@ public:
     return llvm::ConstantInt::get(i64_typ(), val, true);
   }
 
-  [[nodiscard]] llvm::Value *f16val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f16val(double val) const noexcept {
     return llvm::ConstantFP::get(f16_typ(), val);
   }
 
-  [[nodiscard]] llvm::Value *f32val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f32val(double val) const noexcept {
     return llvm::ConstantFP::get(f32_typ(), val);
   }
 
-  [[nodiscard]] llvm::Value *f64val(long val) const noexcept {
+  [[nodiscard]] llvm::Value *f64val(double val) const noexcept {
     return llvm::ConstantFP::get(f64_typ(), val);
   }
 

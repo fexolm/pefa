@@ -1,8 +1,12 @@
+#include "../utils.h"
+
 #include <arrow/api.h>
 #include <arrow/testing/gtest_util.h>
+#include <arrow/testing/random.h>
 #include <gtest/gtest.h>
 #include <memory>
 #include <pefa/execution/execution.h>
+#include <pefa/query_compiler/query_compiler.h>
 
 class FilterExecutorTest : public ::testing::Test {
 protected:
@@ -93,4 +97,67 @@ TEST_F(FilterExecutorTest, testFilterBitmapGeneration) {
                 bitmap->data()[i] >> (7 - j) & 1);
     }
   }
+}
+
+class FilterEndToEndTest : public ::testing::Test {
+protected:
+  std::shared_ptr<arrow::Table> m_table;
+
+public:
+  void SetUp() override {
+    m_table = read_arrow_table("chicago_taxi_trips_2016_01.csv");
+  }
+};
+
+TEST_F(FilterEndToEndTest, filterIdTest) {
+  using namespace pefa::query_compiler;
+  QueryCompiler qc(m_table);
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(523))).execute()->num_rows(),
+            406);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(345))).execute()->num_rows(),
+            102);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(6345))).execute()->num_rows(),
+            83);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(52341))).execute()->num_rows(),
+            0);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(12))).execute()->num_rows(),
+            3573);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(70))).execute()->num_rows(),
+            16276);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(75))).execute()->num_rows(),
+            17495);
+
+  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(1000))).execute()->num_rows(),
+            192525);
+}
+
+TEST_F(FilterEndToEndTest, complexFilteringTest) {
+  using namespace pefa::query_compiler;
+  QueryCompiler qc(m_table);
+  ASSERT_EQ(qc.project({"taxi_id", "trip_seconds"})
+                .filter((col("taxi_id")->LE(lit(1000)))->AND(col("trip_seconds")->LT(lit(20))))
+                .execute()
+                ->num_rows(),
+            18571);
+
+  ASSERT_EQ(qc.project({"taxi_id", "trip_seconds", "trip_miles"})
+                .filter((col("taxi_id")->LE(lit(1000)))->OR((col("trip_seconds")->LT(lit(20)))))
+                .execute()
+                ->num_rows(),
+            362588);
+
+  ASSERT_EQ(
+      qc.project({"taxi_id", "trip_seconds", "trip_miles"})
+          .filter(
+              (col("taxi_id")->LE(lit(1000)))
+                  ->AND((col("trip_seconds")->LT(lit(20)))->OR(col("trip_miles")->LT(lit(0.7)))))
+          .execute()
+          ->num_rows(),
+      74343);
 }

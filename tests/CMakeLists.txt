@@ -4,6 +4,10 @@ enable_testing()
 include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${GTest_INCLUDE_FIR})
 
+add_definitions("-DTEST_DATA_DIR=\"${CMAKE_SOURCE_DIR}/tests/test_data/\"")
+
+list(APPEND ${PEFA_TEST_DEPS})
+
 file(GLOB_RECURSE ARROW_TESTING_SOURCES "${CMAKE_SOURCE_DIR}/vendor/arrow/*.cc")
 
 add_library(arrow_testing STATIC ${ARROW_TESTING_SOURCES})
@@ -11,7 +15,6 @@ target_link_libraries(arrow_testing ${PEFA_DEPS} ${PEFA_TEST_DEPS})
 
 add_executable(test_not_segfaults test_not_segfaults.cpp)
 target_link_libraries(test_not_segfaults ${PEFA_DEPS} ${PEFA_TEST_DEPS} arrow_testing pefa)
-target_compile_definitions(test_not_segfaults PUBLIC "-DTEST_DATA_DIR=\"${CMAKE_SOURCE_DIR}/tests/test_data\"")
 add_test(test_not_segfaults test_not_segfaults)
 
 add_executable(test_filter_kernel kernel_tests/test_filter_kernel.cpp)
