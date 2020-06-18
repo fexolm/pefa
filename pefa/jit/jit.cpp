@@ -122,16 +122,16 @@ std::unique_ptr<Module> JIT::optimizeModule(std::unique_ptr<Module> module) {
   return module;
 }
 
-JIT *get_JIT() {
-  static std::optional<JIT> jit;
-  if (jit.has_value()) {
-    return &jit.value();
+std::shared_ptr<JIT> get_JIT() {
+  static std::shared_ptr<JIT> jit;
+  if (jit) {
+    return jit;
   } else {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
-    jit.emplace();
-    return &jit.value();
+    jit = std::make_shared<JIT>();
+    return jit;
   }
 }
 } // namespace pefa::jit

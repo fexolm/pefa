@@ -47,11 +47,13 @@ public:
     }
     m_buffer = lhs_buf;
   }
+
   void visit(const CompareExpr &expr) override {
     // TODO: support expressions like a > b, 3 * a > 5 * b
     // currently we support only expressions like a > <const>
     auto buffer = arrow::AllocateBitmap(m_ctx->table->num_rows()).ValueOrDie();
     std::memset(buffer->mutable_data(), 255, buffer->size());
+    // TODO: add check if column exists
     auto field = m_ctx->table->schema()->GetFieldByName(expr.lhs->name);
     auto column = m_ctx->table->GetColumnByName(expr.lhs->name);
     auto kernel = kernels::FilterKernel::create_cpu(field, std::make_shared<CompareExpr>(expr));
@@ -102,7 +104,8 @@ std::shared_ptr<arrow::Buffer> generate_filter_bitmap(const std::shared_ptr<Exec
 template <typename T>
 std::shared_ptr<arrow::ChunkedArray> materialize_column(const arrow::ChunkedArray &column,
                                                         const uint8_t *bitmap) {
-  const int chunk_size = 2 << 13;
+  // TODO: move chunk_size to executionContext config
+  const uint64_t chunk_size = 2 << 13;
 
   auto type = column.type();
   auto total_length = column.length();
@@ -116,7 +119,7 @@ std::shared_ptr<arrow::ChunkedArray> materialize_column(const arrow::ChunkedArra
     int new_chunk_pos = 0;
     auto buffer = arrow::AllocateBuffer(sizeof(T) * chunk_size).ValueOrDie();
     auto data_out = reinterpret_cast<T *>(buffer->mutable_data());
-    for (; new_chunk_pos < chunk_size && total_elements_pos < total_length; current_chunk++) {
+    while (new_chunk_pos < chunk_size && total_elements_pos < total_length) {
       auto &chunk = *column.chunk(current_chunk);
       // TODO: process validity buffer too
       auto chunk_data = reinterpret_cast<T *>(chunk.data()->buffers[1]->mutable_data());
@@ -124,8 +127,12 @@ std::shared_ptr<arrow::ChunkedArray> materialize_column(const arrow::ChunkedArra
            current_chunk_pos++, total_elements_pos++) {
         // TODO: this wouldn't vectorize with division.
         // Need to rewrite it to for(int i=0; i<8; i++) or smth like that
-        new_chunk_pos += (bitmap[total_elements_pos / 8] >> (total_elements_pos % 8)) & 1;
         data_out[new_chunk_pos] = chunk_data[current_chunk_pos];
+        new_chunk_pos += (bitmap[total_elements_pos / 8] >> (7 - (total_elements_pos % 8))) & 1;
+      }
+      if (current_chunk_pos == chunk.length()) {
+        current_chunk++;
+        current_chunk_pos = 0;
       }
     }
     auto array_data = arrow::ArrayData::Make(
@@ -172,6 +179,7 @@ std::shared_ptr<ExecutionContext> filter(const std::shared_ptr<ExecutionContext>
                                     " is not supported yet");
     }
   }
-  return std::make_shared<ExecutionContext>(ctx->table, ctx->plan);
+  return std::make_shared<ExecutionContext>(arrow::Table::Make(ctx->table->schema(), new_columns),
+                                            ctx->plan);
 }
 } // namespace pefa::execution

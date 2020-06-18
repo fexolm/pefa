@@ -51,5 +51,5 @@ private:
   std::unique_ptr<Module> optimizeModule(std::unique_ptr<Module> M);
 };
 
-JIT *get_JIT();
+std::shared_ptr<JIT> get_JIT();
 } // namespace pefa::jit
