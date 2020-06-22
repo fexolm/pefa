@@ -38,16 +38,12 @@ public:
   }
 };
 
-namespace pefa::execution {
-std::shared_ptr<arrow::Buffer> generate_filter_bitmap(const std::shared_ptr<ExecutionContext> &ctx,
-                                                      const std::shared_ptr<BooleanExpr> &expr);
-}
-
 TEST_F(FilterExecutorTest, testFilterBitmapGeneration) {
   auto ctx = std::make_shared<pefa::execution::ExecutionContext>(m_table);
   using namespace pefa::query_compiler;
   auto expr = (col("A")->GE(lit(10))->AND(col("B")->LE(lit(7)))->AND(col("C")->GE(lit(5.0))));
-  auto bitmap = pefa::execution::generate_filter_bitmap(ctx, expr);
+  ctx = pefa::execution::generate_filter_bitmap(ctx, expr);
+  auto bitmap = ctx->metadata->filter_bitmap;
   ASSERT_EQ(bitmap->size(), 6);
 
   std::vector<bool> a_res(m_table->column(0)->length(), true);
@@ -111,44 +107,52 @@ public:
 
 TEST_F(FilterEndToEndTest, filterIdTest) {
   using namespace pefa::query_compiler;
-  QueryCompiler qc(m_table);
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(523))).execute()->num_rows(),
-            406);
+  QueryCompiler qc;
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(523))).execute(m_table)->num_rows(),
+      406);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(345))).execute()->num_rows(),
-            102);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(345))).execute(m_table)->num_rows(),
+      102);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(6345))).execute()->num_rows(),
-            83);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(6345))).execute(m_table)->num_rows(),
+      83);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(52341))).execute()->num_rows(),
-            0);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->EQ(lit(52341))).execute(m_table)->num_rows(),
+      0);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(12))).execute()->num_rows(),
-            3573);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(12))).execute(m_table)->num_rows(),
+      3573);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(70))).execute()->num_rows(),
-            16276);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(70))).execute(m_table)->num_rows(),
+      16276);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(75))).execute()->num_rows(),
-            17495);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(75))).execute(m_table)->num_rows(),
+      17495);
 
-  ASSERT_EQ(qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(1000))).execute()->num_rows(),
-            192525);
+  ASSERT_EQ(
+      qc.project({"taxi_id"}).filter(col("taxi_id")->LE(lit(1000))).execute(m_table)->num_rows(),
+      192525);
 }
 
 TEST_F(FilterEndToEndTest, complexFilteringTest) {
   using namespace pefa::query_compiler;
-  QueryCompiler qc(m_table);
+  QueryCompiler qc;
   ASSERT_EQ(qc.project({"taxi_id", "trip_seconds"})
                 .filter((col("taxi_id")->LE(lit(1000)))->AND(col("trip_seconds")->LT(lit(20))))
-                .execute()
+                .execute(m_table)
                 ->num_rows(),
             18571);
 
   ASSERT_EQ(qc.project({"taxi_id", "trip_seconds", "trip_miles"})
                 .filter((col("taxi_id")->LE(lit(1000)))->OR((col("trip_seconds")->LT(lit(20)))))
-                .execute()
+                .execute(m_table)
                 ->num_rows(),
             362588);
 
@@ -157,7 +161,7 @@ TEST_F(FilterEndToEndTest, complexFilteringTest) {
           .filter(
               (col("taxi_id")->LE(lit(1000)))
                   ->AND((col("trip_seconds")->LT(lit(20)))->OR(col("trip_miles")->LT(lit(0.7)))))
-          .execute()
+          .execute(m_table)
           ->num_rows(),
       74343);
 }
