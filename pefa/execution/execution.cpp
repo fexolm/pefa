@@ -94,11 +94,20 @@ public:
   }
 };
 
-std::shared_ptr<arrow::Buffer> generate_filter_bitmap(const std::shared_ptr<ExecutionContext> &ctx,
-                                                      const std::shared_ptr<BooleanExpr> &expr) {
+std::shared_ptr<ExecutionContext>
+generate_filter_bitmap(const std::shared_ptr<ExecutionContext> &ctx,
+                       const std::shared_ptr<BooleanExpr> &expr) {
+  // TODO: handle empty input
+  if (ctx->table->num_columns() == 0 || ctx->table->column(0)->num_chunks() == 0) {
+    return std::make_shared<ExecutionContext>(ctx->table);
+  }
   FilterExprExecutor expr_executor(ctx);
   expr->visit(expr_executor);
-  return expr_executor.result();
+
+  // TODO: create ExecutionContext from ctx and correctly join filter_bitmaps
+  auto res = std::make_shared<ExecutionContext>(ctx->table);
+  res->metadata->filter_bitmap = expr_executor.result();
+  return res;
 }
 
 template <typename T>
@@ -143,12 +152,11 @@ std::shared_ptr<arrow::ChunkedArray> materialize_column(const arrow::ChunkedArra
   return std::make_shared<arrow::ChunkedArray>(new_column);
 }
 
-std::shared_ptr<ExecutionContext> filter(const std::shared_ptr<ExecutionContext> &ctx,
-                                         const std::shared_ptr<BooleanExpr> &expr) {
-  if (ctx->table->num_columns() == 0 || ctx->table->column(0)->num_chunks() == 0) {
-    return std::make_shared<ExecutionContext>(ctx->table, ctx->plan);
+std::shared_ptr<ExecutionContext> materialize_filter(const std::shared_ptr<ExecutionContext> &ctx) {
+  auto bitmap = ctx->metadata->filter_bitmap;
+  if (!bitmap) {
+    throw UnreachableException();
   }
-  auto bitmap = generate_filter_bitmap(ctx, expr);
 
   std::vector<std::shared_ptr<arrow::ChunkedArray>> new_columns;
   auto &table = *ctx->table;
@@ -179,7 +187,6 @@ std::shared_ptr<ExecutionContext> filter(const std::shared_ptr<ExecutionContext>
                                     " is not supported yet");
     }
   }
-  return std::make_shared<ExecutionContext>(arrow::Table::Make(ctx->table->schema(), new_columns),
-                                            ctx->plan);
+  return std::make_shared<ExecutionContext>(arrow::Table::Make(ctx->table->schema(), new_columns));
 }
 } // namespace pefa::execution
