@@ -19,6 +19,7 @@ public:
   void on_visit(const FilterNode &node) override;
   void on_visit(const MaterializeFilterNode &node) override;
   void on_visit(const ProjectionNode &node) override;
+  void on_visit(const GroupByNode &node) override;
 };
 
 class PlanOptimizer {

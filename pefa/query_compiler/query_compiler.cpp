@@ -24,6 +24,10 @@ QueryCompiler QueryCompiler::filter(std::shared_ptr<BooleanExpr> expr) const {
       std::make_shared<FilterNode>(m_plan, std::move(expr))));
 }
 
+QueryCompiler QueryCompiler::group_by(std::vector<std::string> columns) const {
+  return QueryCompiler(std::make_shared<GroupByNode>(m_plan, std::move(columns)));
+}
+
 struct ExecutePlanVisitor : PlanVisitor {
   std::shared_ptr<execution::ExecutionContext> ctx;
 
@@ -40,6 +44,10 @@ struct ExecutePlanVisitor : PlanVisitor {
 
   void on_visit(const MaterializeFilterNode &node) override {
     ctx = execution::materialize_filter(ctx);
+  }
+
+  void on_visit(const GroupByNode &node) override {
+    ctx = execution::group_by(ctx, node.columns);
   }
 };
 

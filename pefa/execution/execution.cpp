@@ -189,4 +189,9 @@ std::shared_ptr<ExecutionContext> materialize_filter(const std::shared_ptr<Execu
   }
   return std::make_shared<ExecutionContext>(arrow::Table::Make(ctx->table->schema(), new_columns));
 }
+
+std::shared_ptr<ExecutionContext> group_by(const std::shared_ptr<ExecutionContext> &ctx,
+                                           std::vector<std::string> columns) {
+  return ctx;
+}
 } // namespace pefa::execution

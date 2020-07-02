@@ -7,6 +7,10 @@ void ProjectionNode::visit(PlanVisitor &visitor) const {
 void FilterNode::visit(PlanVisitor &visitor) const {
   visitor.visit(*this);
 }
+void GroupByNode::visit(PlanVisitor &visitor) const {
+  visitor.visit(*this);
+}
+
 ProjectionNode::ProjectionNode(std::shared_ptr<LogicalPlan> input, std::vector<std::string> fields)
     : input(std::move(input))
     , fields(std::move(fields)) {}
@@ -14,6 +18,10 @@ ProjectionNode::ProjectionNode(std::shared_ptr<LogicalPlan> input, std::vector<s
 FilterNode::FilterNode(std::shared_ptr<LogicalPlan> input, std::shared_ptr<BooleanExpr> expr)
     : input(std::move(input))
     , expr(std::move(expr)) {}
+
+GroupByNode::GroupByNode(std::shared_ptr<LogicalPlan> input, std::vector<std::string> columns)
+    : input(std::move(input))
+    , columns(std::move(columns)) {}
 
 void PlanVisitor::visit(const ProjectionNode &node) {
   if (node.input) {
@@ -28,6 +36,13 @@ void PlanVisitor::visit(const FilterNode &node) {
   on_visit(node);
 }
 void PlanVisitor::visit(const MaterializeFilterNode &node) {
+  if (node.input) {
+    node.input->visit(*this);
+  }
+  on_visit(node);
+}
+
+void PlanVisitor::visit(const GroupByNode &node) {
   if (node.input) {
     node.input->visit(*this);
   }
