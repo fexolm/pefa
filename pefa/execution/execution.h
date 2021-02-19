@@ -13,4 +13,7 @@ materialize_filter(const std::shared_ptr<ExecutionContext> &ctx);
 [[nodiscard]] std::shared_ptr<ExecutionContext>
 generate_filter_bitmap(const std::shared_ptr<ExecutionContext> &ctx,
                        const std::shared_ptr<BooleanExpr> &expr);
+
+[[nodiscard]] std::shared_ptr<ExecutionContext>
+group_by(const std::shared_ptr<ExecutionContext> &ctx, std::vector<std::string> columns);
 } // namespace pefa::execution

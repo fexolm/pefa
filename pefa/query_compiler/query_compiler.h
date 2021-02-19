@@ -20,6 +20,8 @@ public:
 
   [[nodiscard]] QueryCompiler filter(std::shared_ptr<BooleanExpr> expr) const;
 
+  [[nodiscard]] QueryCompiler group_by(std::vector<std::string> columns) const;
+
   [[nodiscard]] std::shared_ptr<arrow::Table>
   execute(const std::shared_ptr<arrow::Table> &table) const;
 };

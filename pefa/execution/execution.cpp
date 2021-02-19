@@ -189,4 +189,106 @@ std::shared_ptr<ExecutionContext> materialize_filter(const std::shared_ptr<Execu
   }
   return std::make_shared<ExecutionContext>(arrow::Table::Make(ctx->table->schema(), new_columns));
 }
+
+template <typename T>
+void merge_aggregates(std::unordered_map<T, uint64_t> &lhs,
+                      const std::unordered_map<T, uint64_t> &rhs) {
+  for (auto el : rhs) {
+    if (lhs.count(el.first)) {
+      lhs[el.first] += el.second;
+    } else {
+      lhs[el.first] = el.second;
+    }
+  }
+}
+
+template <typename T>
+std::unordered_map<T, uint64_t> aggregate_single_chunk(const std::shared_ptr<ExecutionContext> &ctx,
+                                                       const arrow::Array &array, size_t offset) {
+  std::unordered_map<T, uint64_t> result;
+  auto data = reinterpret_cast<const T *>(array.data()->buffers[1]->data());
+  auto len = array.length();
+  if (ctx->metadata->filter_bitmap) {
+    for (int i = 0; i < len; i++) {
+      if ((ctx->metadata->filter_bitmap->data()[(offset + i) / 8] >> (7 - (offset + i) % 8)) & 1) {
+        if (result.count(data[i])) {
+          result[data[i]]++;
+        } else {
+          result[data[i]] = 1;
+        }
+      }
+    }
+  } else {
+    for (int i = 0; i < len; i++) {
+      if (result.count(data[i])) {
+        result[data[i]]++;
+      } else {
+        result[data[i]] = 1;
+      }
+    }
+  }
+  return result;
+}
+
+template <typename T>
+std::unordered_map<T, uint64_t>
+aggregate_single_column(const std::shared_ptr<ExecutionContext> &ctx,
+                        const arrow::ChunkedArray &column) {
+  std::unordered_map<T, uint64_t> result;
+  size_t offset = 0;
+  for (auto chunk : column.chunks()) {
+    merge_aggregates<T>(result, aggregate_single_chunk<T>(ctx, *chunk, offset));
+    offset += chunk->length();
+  }
+  return result;
+}
+
+template <typename T>
+std::shared_ptr<ExecutionContext> typed_aggregate(const std::shared_ptr<ExecutionContext> &ctx,
+                                                  arrow::ChunkedArray &column,
+                                                  std::shared_ptr<arrow::Field> field) {
+  using arrow_type = typename arrow::CTypeTraits<T>::ArrowType;
+  auto map = aggregate_single_column<T>(ctx, column);
+  auto schema = std::make_shared<arrow::Schema>(
+      std::vector{field, std::make_shared<arrow::Field>("count", arrow::uint64())});
+
+  std::unique_ptr<arrow::ArrayBuilder> values_builder;
+  std::unique_ptr<arrow::ArrayBuilder> counts_builder;
+  arrow::MakeBuilder(arrow::default_memory_pool(), field->type(), &values_builder);
+  arrow::MakeBuilder(arrow::default_memory_pool(), arrow::uint64(), &counts_builder);
+  values_builder->Reserve(map.size());
+  counts_builder->Reserve(map.size());
+
+  for (auto el : map) {
+    static_cast<arrow::NumericBuilder<arrow_type> &>(*values_builder).Append(el.first);
+    static_cast<arrow::NumericBuilder<arrow::UInt64Type> &>(*counts_builder).Append(el.second);
+  }
+  std::shared_ptr<arrow::Array> values_column;
+  std::shared_ptr<arrow::Array> counts_column;
+  values_builder->Finish(&values_column);
+  counts_builder->Finish(&counts_column);
+  return std::make_shared<ExecutionContext>(
+      arrow::Table::Make(schema, {std::make_shared<arrow::ChunkedArray>(values_column),
+                                  std::make_shared<arrow::ChunkedArray>(counts_column)}));
+}
+
+std::shared_ptr<ExecutionContext> group_by(const std::shared_ptr<ExecutionContext> &ctx,
+                                           std::vector<std::string> columns) {
+  auto col = ctx->table->GetColumnByName(columns[0]);
+  auto field = ctx->table->schema()->GetFieldByName(columns[0]);
+  switch (col->type()->id()) {
+    PEFA_CASE_RET(PEFA_INT8_CASE, typed_aggregate<int8_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_INT16_CASE, typed_aggregate<int16_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_INT32_CASE, typed_aggregate<int32_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_INT64_CASE, typed_aggregate<int64_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_UINT8_CASE, typed_aggregate<uint8_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_UINT16_CASE, typed_aggregate<uint16_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_UINT32_CASE, typed_aggregate<uint32_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_UINT64_CASE, typed_aggregate<uint64_t>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_FLOAT32_CASE, typed_aggregate<float>(ctx, *col, field))
+    PEFA_CASE_RET(PEFA_FLOAT64_CASE, typed_aggregate<double>(ctx, *col, field))
+  default:
+    throw NotImplementedException("group by " + col->type()->name() + " is not implemented");
+  }
+}
 } // namespace pefa::execution

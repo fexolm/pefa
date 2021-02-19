@@ -31,16 +31,25 @@ struct FilterNode : LogicalPlan {
   FilterNode(std::shared_ptr<LogicalPlan> input, std::shared_ptr<BooleanExpr> expr);
 };
 
+struct GroupByNode : LogicalPlan {
+  std::shared_ptr<LogicalPlan> input;
+  std::vector<std::string> columns;
+  void visit(PlanVisitor &visitor) const override;
+  explicit GroupByNode(std::shared_ptr<LogicalPlan> input, std::vector<std::string> columns);
+};
+
 class PlanVisitor {
 public:
   void visit(const ProjectionNode &node);
   void visit(const FilterNode &node);
   void visit(const MaterializeFilterNode &node);
+  void visit(const GroupByNode &node);
 
 protected:
   virtual void on_visit(const ProjectionNode &node) = 0;
   virtual void on_visit(const FilterNode &node) = 0;
   virtual void on_visit(const MaterializeFilterNode &node) = 0;
+  virtual void on_visit(const GroupByNode &node) = 0;
 };
 
 } // namespace pefa::query_compiler

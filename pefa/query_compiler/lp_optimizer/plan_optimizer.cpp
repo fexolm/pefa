@@ -23,6 +23,10 @@ void OptimizerPass::on_visit(const ProjectionNode &node) {
   m_result = std::make_shared<ProjectionNode>(m_result, node.fields);
 }
 
+void OptimizerPass::on_visit(const GroupByNode &node) {
+  m_result = std::make_shared<GroupByNode>(m_result, node.columns);
+}
+
 std::shared_ptr<LogicalPlan> OptimizerPass::execute(const std::shared_ptr<LogicalPlan> &input) {
   input->visit(*this);
   return m_result;
